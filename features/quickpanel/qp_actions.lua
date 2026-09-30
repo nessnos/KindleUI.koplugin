@@ -291,10 +291,17 @@ function A.actionTitle(action)
         local e = ok and QA.getEntry(action.id)
         return e and e.label or action.id
     end
+    if action.kind == "menu" and type(action.path) == "table" then
+        -- captured from KOReader's menu
+        return table.concat(action.path, " \u{203A} ")
+    end
     return _("None")
 end
 
 local function runCustom(action)
+    if type(action) == "table" and action.kind == "menu" then
+        return require("features/quickpanel/qp_capture").run(action)
+    end
     if type(action) ~= "table" or not action.id then return end
     if action.kind == "koreader" then
         local Dispatcher = require("dispatcher")

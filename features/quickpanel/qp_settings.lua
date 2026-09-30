@@ -73,6 +73,20 @@ local function actionPickerItems(id, refresh)
         refresh()
     end
     local items = {}
+    -- Capture mode: pick any item straight from KOReader's own menu.
+    items[#items + 1] = {
+        text = _("Pick from KOReader's menu (capture)"),
+        help_text = _("Opens KOReader's menu. Go to the item you want and tap it: instead of running, it becomes this button's action. Close the menu to cancel."),
+        separator = true,
+        callback = function()
+            local Capture = require("features/quickpanel/qp_capture")
+            Capture.start(function(action)
+                if action then Store.updateButton(id, { action = action }) end
+                -- back to this button's settings
+                M.openButtonSettings(id)
+            end)
+        end,
+    }
     items[#items + 1] = {
         text = _("KindleUI"),
         sub_item_table_func = function()
@@ -231,6 +245,19 @@ function M.makeMenuItems(ctx_menu)
                 Store.addCustomButton{ label = _("New button") }
                 toast(_("Button added at the end of the list. Open it to choose its action."))
                 refresh()
+            end,
+        }
+        items[#items + 1] = {
+            text = _("Add a button from KOReader's menu"),
+            help_text = _("Capture mode: opens KOReader's menu; tap any item and it becomes a new button with that item's name."),
+            callback = function()
+                require("features/quickpanel/qp_capture").start(function(action)
+                    if action then
+                        local new_id = Store.addCustomButton{ label = action.title }
+                        if new_id then Store.updateButton(new_id, { action = action }) end
+                        M.openButtonSettings(new_id)
+                    end
+                end)
             end,
         }
         items[#items + 1] = {
