@@ -666,11 +666,14 @@ function QARenderer.buildTabCell(action_id, active, spec)
         if mode == "both" then
             vg[#vg + 1] = VerticalSpan():new{ width = spec.icon_txt_sp or 0 }
         end
+        -- padding 0: the slim KindleUI bar has no room for TextWidget's
+        -- default extra space above and below the text
         local label_w = TextWidget():new{
             text    = entry.label,
             face    = Font():getFace(style.FACE_REGULAR, spec.label_fs),
             fgcolor = item_fg,
             bold    = active or false,
+            padding = 0,
         }
         if spec.group_chevron then
             -- KindleUI: a group's label gets a small up chevron, like the
@@ -690,7 +693,7 @@ function QARenderer.buildTabCell(action_id, active, spec)
                 label_w:free()
                 label_w = TextWidget():new{
                     text = entry.label, face = Font():getFace(style.FACE_REGULAR, spec.label_fs),
-                    fgcolor = item_fg, bold = active or false,
+                    fgcolor = item_fg, bold = active or false, padding = 0,
                     max_width = maxw, truncate_with_ellipsis = true,
                 }
             end

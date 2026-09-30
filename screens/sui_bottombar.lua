@@ -320,7 +320,8 @@ function M.ICON_TXT_SP() return _cached("itxt_sp", function() return math.floor(
 function M.LABEL_FS()    return _cached("lbl_fs",  function()
     local ok, ss = pcall(_SUIStyle)
     local base = (ok and ss and ss.FS_DETAIL) or 15  -- FS_DETAIL (15)
-    return math.floor(base * _getNavbarScale() * _CONTENT * (_getLabelScalePct() / 100))
+    -- labels are 20% bigger than the icons' scaling, so they stay readable
+    return math.floor(base * _getNavbarScale() * _CONTENT * 1.2 * (_getLabelScalePct() / 100))
 end) end
 function M.INDIC_H()     return _cached("indic_h", function() return math.floor(Screen:scaleBySize(3)  * _getNavbarScale()) end) end
 
