@@ -103,19 +103,54 @@ end
 -- A section label like the page's own ones (bold title, and an optional
 -- smaller regular line under it, e.g. "12 books"). It starts at the column's
 -- left edge, so it lines up with the first cover below it.
-local function labelWidget(text, sub, w, lf)
+-- `nav` (optional): { page, npages, turn = fn(delta), has_wallpaper } — the
+-- "1/2" and ‹ › page arrows of a paged cover row, on the title's line, like
+-- the page's own section labels.
+local function labelWidget(text, sub, w, lf, nav)
     local scale = Config.getLabelScale() * (lf or 1)
     local fs = math.max(8, math.floor(SUIStyle.FS_BODY * scale))
+    local right
+    if nav and nav.npages and nav.npages > 1 then
+        local gap = Screen:scaleBySize(8)
+        local ind = TextWidget:new{
+            text = string.format("%d/%d", nav.page, nav.npages),
+            face = Font:getFace(SUIStyle.FACE_REGULAR, math.max(7, math.floor(SUIStyle.FS_DETAIL * scale))),
+            fgcolor = SUIStyle.COLOR and SUIStyle.COLOR.text_primary or Blitbuffer.COLOR_BLACK,
+        }
+        local probe = TextWidget:new{ text = "Ag", face = Font:getFace(SUIStyle.FACE_REGULAR, fs), bold = true }
+        local row_h = probe:getSize().h
+        probe:free()
+        local ok_gr, GridRenderer = pcall(require, "engines/sui_book_grid")
+        local prev_b, next_b
+        if ok_gr and GridRenderer then
+            prev_b, next_b = GridRenderer.buildPageNavButtons(nav.page, nav.npages, row_h, nav.turn, nav.has_wallpaper)
+        end
+        right = HorizontalGroup:new{ align = "center" }
+        if prev_b then right[#right + 1] = prev_b; right[#right + 1] = HorizontalSpan:new{ width = gap } end
+        right[#right + 1] = ind
+        if next_b then right[#right + 1] = HorizontalSpan:new{ width = gap }; right[#right + 1] = next_b end
+    end
+    local right_w = right and (right:getSize().w + Screen:scaleBySize(8)) or 0
+    local title = TextWidget:new{
+        text = text,
+        face = Font:getFace(SUIStyle.FACE_REGULAR, fs),
+        bold = true,
+        fgcolor = SUIStyle.COLOR and SUIStyle.COLOR.text_primary or Blitbuffer.COLOR_BLACK,
+        max_width = math.max(1, w - right_w),
+        truncate_with_ellipsis = true,
+    }
+    local first_line = title
+    if right then
+        local lh = math.max(title:getSize().h, right:getSize().h)
+        first_line = HorizontalGroup:new{
+            align = "center",
+            LeftContainer:new{ dimen = Geom:new{ w = w - right:getSize().w, h = lh }, title },
+            right,
+        }
+    end
     local vg = VerticalGroup:new{
         align = "left",
-        TextWidget:new{
-            text = text,
-            face = Font:getFace(SUIStyle.FACE_REGULAR, fs),
-            bold = true,
-            fgcolor = SUIStyle.COLOR and SUIStyle.COLOR.text_primary or Blitbuffer.COLOR_BLACK,
-            max_width = math.max(1, w),
-            truncate_with_ellipsis = true,
-        },
+        first_line,
     }
     if sub and sub ~= "" then
         vg[#vg + 1] = TextWidget:new{
@@ -171,7 +206,22 @@ local function makeInstance(inst_id)
         local text = showLabels(ctx and ctx.pfx or "simpleui_hs_", inst_id) and labelTextFor(mod, ctx)
         if text then
             local sub = type(mod.label_sub_func) == "function" and ctx and mod.label_sub_func(ctx) or nil
-            local lw = labelWidget(text, sub, side_w, ctx and ctx.landscape_factor)
+            -- page arrows for paged cover rows (Featured / Author-Series Collection…)
+            local nav
+            local npages = ctx and ctx["_row_npages_" .. mod.id]
+            if npages and npages > 1 then
+                local mid = mod.id
+                nav = {
+                    page = ctx["_row_page_" .. mid] or 1,
+                    npages = npages,
+                    has_wallpaper = ctx.has_wallpaper,
+                    turn = function(delta)
+                        local screen = ctx._screen_widget
+                        if screen and screen._turnBookModPage then screen:_turnBookModPage(mid, delta) end
+                    end,
+                }
+            end
+            local lw = labelWidget(text, sub, side_w, ctx and ctx.landscape_factor, nav)
             vg[#vg + 1] = lw
             vg[#vg + 1] = VerticalSpan:new{ width = LABEL_GAP }
         end

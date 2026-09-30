@@ -109,7 +109,7 @@ Add modules from **Settings → Home Screen → Edit Home Screen Layout → Add 
 - **Two Columns.** Puts two modules side by side.
   - Pick the left and right module, or create a new collection just for that column.
   - Set the left column's width.
-  - Rows of covers always show one row of two books in a column.
+  - Rows of covers always show one row of two books in a column. Swipe them, or use the ‹ 1/3 › arrows next to their title, to see the rest.
   - The Clock can't go in a column; use its Column Width setting instead.
 - **And more:** Recent, To Be Read, New Books, Cover Deck, Library, Collections, Quote of the Day, Clock, Reading Goals, Reading Stats, Reading Heatmap, Quick Actions, Action List and Spacer.
 
@@ -118,6 +118,8 @@ Progress bars in modules are thin and black. Collection titles show their book c
 ## Navigation bar
 
 Settings → Bars → **Navigation Bar**: tabs, tab style (icons, text or both), sizes and more.
+
+The bar is slim by default, like KindleOS's. Its height, icons and labels can all be resized there.
 
 ### Current Book tab
 

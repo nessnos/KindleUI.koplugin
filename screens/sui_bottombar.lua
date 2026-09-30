@@ -307,14 +307,20 @@ function M.invalidateDimCache()
     _vspan_icon_txt  = nil
 end
 
-function M.BAR_H()       return _cached("bar_h",   function() return math.floor(Screen:scaleBySize(96) * _getNavbarScale()) end) end
-function M.ICON_SZ()     return _cached("icon_sz", function() return math.floor(Screen:scaleBySize(44) * _getNavbarScale() * (_getIconScalePct()  / 100)) end) end
-function M.ICON_TOP_SP() return _cached("it_sp",   function() return math.floor(Screen:scaleBySize(10) * _getNavbarScale()) end) end
-function M.ICON_TXT_SP() return _cached("itxt_sp", function() return math.floor(Screen:scaleBySize(4)  * _getNavbarScale()) end) end
+-- KindleUI: the bar is a third less tall than before (HEIGHT), with its
+-- icons and labels a quarter smaller (CONTENT) so they still fit; the
+-- Current Book cover follows BAR_H, so it shrinks with the bar.
+local _HEIGHT  = 2 / 3
+local _CONTENT = 0.75
+
+function M.BAR_H()       return _cached("bar_h",   function() return math.floor(Screen:scaleBySize(96) * _getNavbarScale() * _HEIGHT) end) end
+function M.ICON_SZ()     return _cached("icon_sz", function() return math.floor(Screen:scaleBySize(44) * _getNavbarScale() * _CONTENT * (_getIconScalePct()  / 100)) end) end
+function M.ICON_TOP_SP() return _cached("it_sp",   function() return math.floor(Screen:scaleBySize(10) * _getNavbarScale() * _HEIGHT) end) end
+function M.ICON_TXT_SP() return _cached("itxt_sp", function() return math.floor(Screen:scaleBySize(4)  * _getNavbarScale() * _HEIGHT) end) end
 function M.LABEL_FS()    return _cached("lbl_fs",  function()
     local ok, ss = pcall(_SUIStyle)
     local base = (ok and ss and ss.FS_DETAIL) or 15  -- FS_DETAIL (15)
-    return math.floor(base * _getNavbarScale() * (_getLabelScalePct() / 100))
+    return math.floor(base * _getNavbarScale() * _CONTENT * (_getLabelScalePct() / 100))
 end) end
 function M.INDIC_H()     return _cached("indic_h", function() return math.floor(Screen:scaleBySize(3)  * _getNavbarScale()) end) end
 
