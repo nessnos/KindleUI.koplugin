@@ -2574,7 +2574,22 @@ SimpleUIPlugin.addToMainMenu = function(self, menu_items)
                 end,
             },
             {
+                text           = _("Hide Opening / Closing Popups"),
+                help_text      = _("Don't show the \"Opening file…\" and \"Closing book…\" popups. The current page stays on screen until the book is actually open or closed, like on a Kindle."),
+                checked_func   = function()
+                    return require("features/kui_book_notices").isEnabled()
+                end,
+                keep_menu_open = true,
+                callback       = function()
+                    local BN = require("features/kui_book_notices")
+                    BN.setEnabled(not BN.isEnabled())
+                end,
+            },
+            {
                 text = _("Closing Book Notice"),
+                enabled_func = function()
+                    return not require("features/kui_book_notices").isEnabled()
+                end,
                 help_text = _("Show a brief \"Closing book…\" notice when closing a book, preventing accidental double-taps while e-ink refreshes."),
                 sub_item_table = {
                     {
