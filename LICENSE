@@ -1,6 +1,7 @@
 MIT License
 
-Copyright (c) 2026 doctorhetfield-cmd
+Copyright (c) 2026 Lina (KindleUI)
+Copyright (c) 2026 doctorhetfield-cmd (SimpleUI, on which KindleUI is based)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +20,25 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+-------------------------------------------------------------------------------
+
+Third-party material
+
+- SimpleUI (https://github.com/doctorhetfield-cmd) — MIT License,
+  Copyright (c) 2026 doctorhetfield-cmd. KindleUI's home screen, navigation
+  bar, library features, settings window, modules, icons in icons/ and the
+  translations in locale/ come from SimpleUI (modified). Its notice is kept
+  above, as its licence requires.
+
+- features/quickpanel/qp_glyphs.lua lists the code points and names of the
+  symbols in KOReader's bundled icon font (Nerd Fonts Symbols, MIT License,
+  Copyright (c) 2014 Ryan L McIntyre). No font data is included; the glyphs
+  are drawn from the font KOReader already ships.
+
+KindleUI is a plugin for KOReader (https://github.com/koreader/koreader),
+which is licensed separately under the AGPL-3.0; KindleUI does not include
+any KOReader source code. Kindle and KindleOS are trademarks of Amazon.com,
+Inc. or its affiliates; Kobo is a trademark of Rakuten Kobo Inc. KindleUI is
+not affiliated with or endorsed by Amazon, Rakuten Kobo or the KOReader
+project.

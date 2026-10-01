@@ -273,7 +273,9 @@ end
 -- per invalidation cycle, regardless of how many dimension functions call it.
 local function _getNavbarScale()
     return _cached("nav_scale", function()
-        return Config.getBarSizePct() / 100 * (Config.NAVBAR_BASE_SCALE or 1)
+        -- KindleUI 1.7.6: the whole bar (height, icons, labels, cover) is a
+        -- third bigger than before, on top of the user's size setting.
+        return Config.getBarSizePct() / 100 * (Config.NAVBAR_BASE_SCALE or 1) * (4 / 3)
     end)
 end
 
@@ -313,7 +315,41 @@ end
 local _HEIGHT  = 2 / 3
 local _CONTENT = 0.75
 
-function M.BAR_H()       return _cached("bar_h",   function() return math.floor(Screen:scaleBySize(96) * _getNavbarScale() * _HEIGHT) end) end
+-- KindleUI: with labels only (no icons) the bar hugs the text like
+-- KindleOS: the label line plus a small, equal margin above and below.
+local function _labelsOnly()
+    return Config.getNavbarMode() == "text"
+end
+local function _labelLineH()
+    return _cached("lbl_line_h", function()
+        local ok, h = pcall(function()
+            local tw = TextWidget():new{
+                text = "Hg", padding = 0,
+                face = Font():getFace(_SUIStyle().FACE_REGULAR, M.LABEL_FS()),
+            }
+            local hh = tw:getSize().h
+            tw:free()
+            return hh
+        end)
+        return (ok and h) or math.floor(M.LABEL_FS() * 1.4)
+    end)
+end
+
+function M.BAR_H()       return _cached("bar_h",   function()
+    if _labelsOnly() then
+        local lh = _labelLineH()
+        return lh + 2 * math.max(Screen:scaleBySize(7), math.floor(lh * 0.42))
+    end
+    local base = math.floor(Screen:scaleBySize(96) * _getNavbarScale() * _HEIGHT)
+    if Config.getNavbarMode() == "both" then
+        -- KindleUI: icon + label must fit with a little air above the icon
+        -- (the content is centred, so the extra space is shared above/below).
+        local content = M.ICON_SZ() + M.ICON_TXT_SP() + _labelLineH()
+        local air = math.floor(Screen:scaleBySize(7) * _getNavbarScale())
+        return math.max(base, content + 2 * air)
+    end
+    return base
+end) end
 function M.ICON_SZ()     return _cached("icon_sz", function() return math.floor(Screen:scaleBySize(44) * _getNavbarScale() * _CONTENT * (_getIconScalePct()  / 100)) end) end
 function M.ICON_TOP_SP() return _cached("it_sp",   function() return math.floor(Screen:scaleBySize(10) * _getNavbarScale() * _HEIGHT) end) end
 function M.ICON_TXT_SP() return _cached("itxt_sp", function() return math.floor(Screen:scaleBySize(4)  * _getNavbarScale() * _HEIGHT) end) end
@@ -323,11 +359,24 @@ function M.LABEL_FS()    return _cached("lbl_fs",  function()
     -- labels are 20% bigger than the icons' scaling, so they stay readable
     return math.floor(base * _getNavbarScale() * _CONTENT * 1.2 * (_getLabelScalePct() / 100))
 end) end
+-- KindleUI: font size the tab labels are drawn at. With labels only they
+-- are a little smaller than LABEL_FS; the bar height is still worked out
+-- from LABEL_FS, so the bar itself doesn't change.
+function M.TAB_LABEL_FS() return _cached("tab_lbl_fs", function()
+    if _labelsOnly() then return math.floor(M.LABEL_FS() * 0.92 + 0.5) end
+    return M.LABEL_FS()
+end) end
 function M.INDIC_H()     return _cached("indic_h", function() return math.floor(Screen:scaleBySize(3)  * _getNavbarScale()) end) end
 
 -- Structural dimensions — not affected by the size setting.
 function M.TOP_SP()      return _cached("top_sp",  function() return Screen:scaleBySize(2)  end) end
-function M.BOT_SP()      return _cached("bot_sp",  function() return math.floor(Screen:scaleBySize(12) * _getBottomMarginPct() / 100) end) end
+function M.BOT_SP()      return _cached("bot_sp",  function()
+    -- labels only: the bar's own margin under the text is enough
+    -- (icons + labels: the bar already has air below the label, see BAR_H)
+    local mode = Config.getNavbarMode()
+    local base = (mode == "text" and 3) or (mode == "both" and 5) or 12
+    return math.floor(Screen:scaleBySize(base) * _getBottomMarginPct() / 100)
+end) end
 function M.SIDE_M()      return _cached("side_m",  function() return Screen:scaleBySize(24) end) end
 function M.SEP_H()
     return _cached("sep_h", function()
@@ -569,7 +618,7 @@ end
 --- Cover size and how far it rises above the bar: cw, ch, bottom_pad, protrude.
 function M.currentBookCoverGeometry()
     local bar_h = M.BAR_H()
-    local ch = math.floor(bar_h * 1.22)
+    local ch = math.floor(bar_h * 1.27)
     local cw = math.floor(ch * 2 / 3)
     local bottom_pad = math.floor(bar_h * 0.08)
     local protrude = math.max(0, ch + bottom_pad - bar_h)
@@ -682,7 +731,7 @@ function M.buildTabCell(action_id, active, tab_w, mode)
         tab_w                    = tab_w,
         bar_h                    = M.BAR_H(),
         icon_sz                  = M.ICON_SZ(),
-        label_fs                 = M.LABEL_FS(),
+        label_fs                 = M.TAB_LABEL_FS(),
         icon_txt_sp              = M.ICON_TXT_SP(),
         indic_h                  = M.INDIC_H(),
         mode                     = mode,
@@ -737,7 +786,7 @@ function M.buildNavpagerArrowCell(is_prev, enabled, tab_w, mode)
         end
         tw = TextWidget():new{
             text    = label,
-            face    = Font():getFace(SUIStyle.FACE_REGULAR, M.LABEL_FS()),
+            face    = Font():getFace(SUIStyle.FACE_REGULAR, M.TAB_LABEL_FS()),
             fgcolor = color,
         }
         vg[#vg + 1] = tw

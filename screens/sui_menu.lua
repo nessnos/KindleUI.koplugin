@@ -197,8 +197,18 @@ SimpleUIPlugin.addToMainMenu = function(self, menu_items)
             keep_menu_open = true,
             checked_func   = function() return Config.getNavbarMode() == mode_value end,
             callback       = function()
+                local was_mode = Config.getNavbarMode()
                 Config.saveNavbarMode(mode_value)
-                plugin:_scheduleRebuild()
+                if was_mode ~= mode_value then
+                    -- KindleUI: labels-only bars are shorter, so the screens
+                    -- around them need a full relayout (same as a size change).
+                    UI.invalidateDimCache()
+                    plugin:_rewrapAllWidgets()
+                    local ok_se, ScreenEngine = pcall(require, "engines/sui_screen_engine")
+                    if ok_se and ScreenEngine then ScreenEngine.refreshAllLiveImmediate(true) end
+                else
+                    plugin:_scheduleRebuild()
+                end
             end,
         }
     end

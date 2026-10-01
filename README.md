@@ -30,7 +30,7 @@ Made for jailbroken Kindles, and works on any device KOReader runs on.
 - **Quick settings** as the only top menu:
   - device name, time, date and battery;
   - round buttons;
-  - brightness and warmth sliders.
+  - brightness and warmth sliders (warmth uses the Kindle's own 0–24 scale).
   - A **KOReader** button opens KOReader's full menu.
 - **Kindle-style settings**: full-screen pages, switches and chevrons.
 - **Library**:
@@ -38,6 +38,7 @@ Made for jailbroken Kindles, and works on any device KOReader runs on.
   - browsing by author and series;
   - folder covers.
 - **KindleOS touches**:
+  - no "Opening file…" / "Closing book…" popups: the page stays on screen until the book is ready;
   - the flat chevron in the top bar;
   - the horizontal battery;
   - thin black progress bars;
@@ -73,7 +74,7 @@ Tapping or swiping down at the top of the screen (Home, Library or while reading
 - **Header.** The device name, the time and date ("18:07 • Sept 30, 2026") and the battery.
 - **Buttons.** Round buttons with a label under each, filled when on, in equal columns; a shorter last row is centred.
 - **Wi-Fi button.** Its label shows the network's name when connected, "On" when on but not connected, and "Off".
-- **Sliders.** Brightness and Warmth, with the value above the knob and − / + on each side.
+- **Sliders.** Brightness and Warmth, with the value above the knob and − / + on each side. Warmth uses the device's own scale, so on a Kindle it goes from 0 to 24, like KindleOS.
 - **Closing.** Tap the up chevron, tap below the panel, or swipe up. The screen behind is dimmed.
 
 Long-press a button to open its settings. The **KOReader** button is always there. You can rename it and change its icon, but it can't be hidden and its action can't change.
@@ -121,6 +122,14 @@ Settings → Bars → **Navigation Bar**: tabs, tab style (icons, text or both),
 
 The bar is slim by default, like KindleOS's. Its height, icons and labels can all be resized there.
 
+Its height follows the tab style:
+
+- **Text only:** a compact bar that just fits the labels, like KindleOS with icons turned off.
+- **Icons and text:** a little taller, with some space above the icons.
+- **Icons only:** the standard height.
+
+Changing the style redraws the Home screen to fit straight away.
+
 ### Current Book tab
 
 Shows the cover of the book you're reading, rising above the bar like on KindleOS. Tap it to open the book.
@@ -142,6 +151,14 @@ With text labels on, the group's name gets a small up chevron. The group's tab s
   - A KindleOS-style scrollbar sits on the right: a triangle at each end (grey when you can't go further), a thin track, and a black bar for where you are.
 - **Browse by author and series**, folder covers, series grouping and more (from SimpleUI).
 - Author and series views don't show the "Page x of y" line at the bottom, so it can't sit behind the Current Book cover.
+
+## Opening and closing books
+
+KindleUI hides KOReader's "Opening file…" popup and the "Closing book…" notice. The current page just stays on screen until the book has opened or closed, like on a Kindle. Error messages still show.
+
+To get the popups back, switch off Settings → Behaviour → **Hide Opening / Closing Popups**. The *Closing Book Notice* option then works again.
+
+If you used the separate `2-no-open-close-popup.lua` patch, you can delete it.
 
 ## Status bar
 
@@ -178,6 +195,7 @@ KindleUI started from SimpleUI. The main additions:
 | `features/quickpanel/` | The quick-settings panel: panel, sliders, buttons, settings pages, icon picker, device name. |
 | `features/kui_topmenu.lua` | Makes the panel the top menu. |
 | `features/kui_vertical_scroll.lua` | Vertical library scrolling and the scrollbar. |
+| `features/kui_book_notices.lua` | Hides the opening / closing book popups. |
 | `screens/kui_navbar_dropdown.lua` | The group menu on the navigation bar. |
 | `modules/module_two_col.lua` | Two Columns. |
 | `modules/module_meta_row.lua` | Author / Series Collection. |
