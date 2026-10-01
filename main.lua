@@ -38,6 +38,12 @@ do
     if not ok_vs then logger.err("kindleui: vertical scroll install failed:", tostring(err_vs)) end
 end
 
+-- No "Opening file…" popup: hook ReaderUI before the first book is opened.
+do
+    local ok_bn, err_bn = pcall(function() require("features/kui_book_notices").install() end)
+    if not ok_bn then logger.err("kindleui: book notices install failed:", tostring(err_bn)) end
+end
+
 -- ---------------------------------------------------------------------------
 -- ReaderStatistics class-table accessor
 -- ---------------------------------------------------------------------------
@@ -1951,8 +1957,9 @@ function SimpleUIPlugin:onCloseDocument()
 
         local suppress = is_reload or cover_shown
 
-        if (notice_mode == "always" and not suppress)
-                or (notice_mode == "gesture_only" and via_gesture) then
+        local hide_all = require("features/kui_book_notices").isEnabled()
+        if not hide_all and ((notice_mode == "always" and not suppress)
+                or (notice_mode == "gesture_only" and via_gesture)) then
             -- UIManager:show() respects honor_silent_mode on InfoMessage, which
             -- means the notice is silently dropped when the Dispatcher has put
             -- the UIManager into silent mode to batch multiple gesture actions.

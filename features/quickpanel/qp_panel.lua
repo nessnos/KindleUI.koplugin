@@ -10,7 +10,7 @@ top of the screen, laid out like KindleOS' own quick settings:
     ├──────────────────────────────────────────────┤
     │ Brightness                               12   │
     │ (−)  ━━━━━━━━━━━━●───────────────────   (+)   │  ← sliders
-    │ Warmth                                   40   │
+    │ Warmth                                   10   │
     │ (−)  ━━━━━━━●────────────────────────   (+)   │
     │                    ︿                          │  ← chevron: tap to close
     ┝━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┥
@@ -166,12 +166,23 @@ function QuickPanel:_sliderSpecs()
         }
     end
     if Store.get("slider_warmth") and Device:hasNaturalLight() and powerd then
-        local step = math.max(1, math.floor((powerd.warmth_scale or 1) + 0.5))
+        -- Show the device's native warmth scale (0-24 on Kindles, like the
+        -- stock KindleOS slider) instead of KOReader's internal 0-100.
+        local native = powerd.toNativeWarmth and powerd.fromNativeWarmth
+            and powerd.fl_warmth_max ~= nil
+        local wmin = native and (powerd.fl_warmth_min or 0) or 0
+        local wmax = native and powerd.fl_warmth_max or 100
         specs[#specs + 1] = {
             kind = "warmth", title = _("Warmth"), glyph = "\u{E7E0}",
-            min = 0, max = 100, step = step,
-            get = function() return powerd:frontlightWarmth() end,
-            set = function(v) powerd:setWarmth(v) end,
+            min = wmin, max = wmax, step = 1,
+            get = function()
+                local w = powerd:frontlightWarmth()
+                return native and powerd:toNativeWarmth(w) or w
+            end,
+            set = function(v)
+                v = math.max(wmin, math.min(wmax, math.floor(v + 0.5)))
+                powerd:setWarmth(native and powerd:fromNativeWarmth(v) or v)
+            end,
         }
     end
     return specs
