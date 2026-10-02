@@ -2875,6 +2875,23 @@ SimpleUIPlugin.addToMainMenu = function(self, menu_items)
                     _refreshFC()
                 end,
             },
+            -- ── KindleUI: authors sorted by last name ───────────────────────
+            {
+                text           = _("Sort Authors by Last Name"),
+                help_text      = _("In the Authors view, sort authors by last name (\"Le Guin\", \"Maas\"…) while still showing them as \"First Last\"."),
+                checked_func   = function()
+                    return require("features/library/kui_author_names").isEnabled()
+                end,
+                keep_menu_open = true,
+                callback       = function()
+                    local AN = require("features/library/kui_author_names")
+                    AN.setEnabled(not AN.isEnabled())
+                    pcall(function() require("features/library/sui_metadata_source").clearCache() end)
+                    local FM2 = package.loaded["apps/filemanager/filemanager"]
+                    local fc2 = FM2 and FM2.instance and FM2.instance.file_chooser
+                    if fc2 then pcall(function() fc2:refreshPath() end) end
+                end,
+            },
             -- ── Enable Browse by Author / Series / Tags ───────────────────────
             {
                 text         = _("Enable Browse by Author / Series / Tags"),

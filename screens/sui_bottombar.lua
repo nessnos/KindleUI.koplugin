@@ -437,6 +437,8 @@ function M.patchDimmedIcon(btn)
     local Blitbuffer = require("ffi/blitbuffer")
     local UI_core    = require("infra/sui_core")
     lw.paintTo = function(self_lw, bb, x, y)
+        -- A hidden button (Button:hide sets label_widget.hide) paints nothing.
+        if self_lw.hide then return end
         if not btn.enabled then
             local sz = self_lw:getSize()
             local w, h = sz.w, sz.h
@@ -566,6 +568,10 @@ function M.resizePaginationButtons(widget, icon_size)
             txt.text_font_size = M.getPaginationFontSize()
             txt:init()
         end
+        -- KindleUI: init() made the buttons visible again; with vertical
+        -- scrolling they must stay hidden.
+        local VS = package.loaded["features/kui_vertical_scroll"]
+        if widget._vlibscroll_bar and VS and VS.sync then VS.sync(widget) end
     end)
     -- Apply any user-defined icon overrides for the pagination chevrons.
     -- This is called at every layout/rotation so overrides survive rebuilds.

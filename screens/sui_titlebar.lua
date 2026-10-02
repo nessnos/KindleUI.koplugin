@@ -32,6 +32,7 @@ local _BROWSE_ICONS_DEFAULT = {
     author = _PLUGIN_DIR .. "icons/author.svg",
     series = _PLUGIN_DIR .. "icons/series.svg",
     tags   = _PLUGIN_DIR .. "icons/tags.svg",
+    collections = _PLUGIN_DIR .. "icons/collections.svg",
 }
 
 -- Maps browse mode → SUIStyle slot id for user overrides.
@@ -40,6 +41,7 @@ local _BM_SLOT = {
     author = "sui_browse_author",
     series = "sui_browse_series",
     tags   = "sui_browse_tags",
+    collections = "sui_browse_collections",
 }
 
 local M = {}
@@ -1011,7 +1013,11 @@ function M.apply(fm_self)
                         -- Closes dialog, navigates to mode, and refreshes the icon.
                         local function _navigate(dlg, mode)
                             UIManager:close(dlg)
-                            BM.navigateTo(fm_self, mode)
+                            -- KindleUI: remembered, so the Library comes back to it.
+                            if BM.chooseView then BM.chooseView(fm_self, mode)
+                            else BM.navigateTo(fm_self, mode) end
+                            local fc_now = fm_self.file_chooser
+                            mode = fc_now and BM.getCurrentMode(fc_now) or mode
                             local _ss = SUIStyle()
                             if not (_ss and _ss.applyIconToBtn(_BM_SLOT[mode], browse_btn)) then
                                 if _ss and _ss.restoreDefaultIcon then
@@ -1031,11 +1037,12 @@ function M.apply(fm_self)
                             title       = _("Browse library"),
                             title_align = "center",
                             buttons = {
-                                {{ text = _check("normal") .. _("Default"),   callback = function() _navigate(dlg, "normal") end }},
-                                {{ text = _check("author") .. _("By author"), callback = function() _navigate(dlg, "author") end }},
-                                {{ text = _check("series") .. _("By series"), callback = function() _navigate(dlg, "series") end }},
-                                {{ text = _check("tags")   .. _("By tags"),   callback = function() _navigate(dlg, "tags")   end }},
-                                {{ text = _("Cancel"),                         callback = function() UIManager:close(dlg)     end }},
+                                {{ text = _check("normal")      .. _("All books"),   callback = function() _navigate(dlg, "normal")      end }},
+                                {{ text = _check("author")      .. _("Authors"),     callback = function() _navigate(dlg, "author")      end }},
+                                {{ text = _check("series")      .. _("Series"),      callback = function() _navigate(dlg, "series")      end }},
+                                {{ text = _check("collections") .. _("Collections"), callback = function() _navigate(dlg, "collections") end }},
+                                {{ text = _check("tags")        .. _("Tags"),        callback = function() _navigate(dlg, "tags")        end }},
+                                {{ text = _("Cancel"),                                callback = function() UIManager:close(dlg)          end }},
                             },
                         }
                         UIManager:show(dlg)
