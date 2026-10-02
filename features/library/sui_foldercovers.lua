@@ -558,6 +558,9 @@ end
 -- The optional `entry` is used to identify virtual folder types.
 local _resolveStyle
 _resolveStyle = function(menu, dir_path, entry)
+    -- KindleUI: a collection is always a stack (its first book's cover with
+    -- the stacked edges), never the 2×2 grid.
+    if entry and entry.kui_collection then return "single" end
     local style = M.getFolderStyle()
     if style ~= "auto" then return style end
     if not menu or not dir_path then return "single" end

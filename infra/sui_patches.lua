@@ -4317,6 +4317,9 @@ function M.closeReaderToLibrary(plugin)
             if fm_ref.updateTitleBarPath then
                 pcall(function() fm_ref:updateTitleBarPath(home, true) end)
             end
+            -- KindleUI: bring back the library view the user last picked.
+            local ok_bm, BM = pcall(require, "features/library/sui_library_browse")
+            if ok_bm and BM and BM.applyLibraryView then pcall(BM.applyLibraryView, fm_ref) end
         elseif fm_ref.file_chooser then
             fm_ref.file_chooser:refreshPath()
         end

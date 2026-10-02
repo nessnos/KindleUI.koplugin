@@ -296,6 +296,12 @@ if ok_guard and FileChooser and not FileChooser._vlibscroll_patch_installed then
                 menu_self.page_info_text,
             } do
                 if w then
+                    -- A Button rebuilt with init() (KindleUI resizes the
+                    -- pagination icons that way) is visible again but
+                    -- still flagged hidden, so hide() would do nothing.
+                    if w.hidden and w.label_widget and not w.label_widget.hide then
+                        w.hidden = false
+                    end
                     if w.hide then w:hide() end
                     if w.disable then w:disable() end
                 end
@@ -308,6 +314,9 @@ if ok_guard and FileChooser and not FileChooser._vlibscroll_patch_installed then
             logger.warn("kindleui/vscroll: syncOverlayState failed:", err)
         end
     end
+
+    -- Re-applies the hidden pager after something rebuilt its buttons.
+    M.sync = syncOverlayState
 
     -- Builds the [up-arrow / scrollbar / down-arrow] overlay and appends
     -- it to `fc`'s own widget tree (fc[1][1] is the OverlapGroup
@@ -410,6 +419,63 @@ if ok_guard and FileChooser and not FileChooser._vlibscroll_patch_installed then
             local ok, err = pcall(buildOverlay, self)
             if not ok then
                 logger.warn("kindleui/vscroll: buildOverlay failed:", err)
+            end
+        end
+    end
+
+    -----------------------------------------------------------------------
+    -- 2b. KindleUI: KOReader's own collection screens (the collections
+    --     list and a collection's book list) are plain Menus, not the
+    --     FileChooser. Give them the same scrollbar, reserved gutter and
+    --     up/down swipes, so they don't show the stock arrows.
+    -----------------------------------------------------------------------
+
+    local function isCollectionsMenu(menu)
+        if menu.name == "filemanager" then return false end
+        if menu.name == "collections" then return true end
+        local mgr = menu._manager
+        return type(mgr) == "table" and mgr.default_collection_title ~= nil
+    end
+
+    local orig_menu_init = Menu.init
+    Menu.init = function(self, ...)
+        local wanted = isEnabled() and isCollectionsMenu(self) and not self._vlibscroll_recalc_installed
+        if wanted then
+            local reserved = getReservedWidth(self)
+            if reserved > 0 then
+                self._vlibscroll_recalc_installed = true
+                local orig_recalc = self._recalculateDimen
+                self._recalculateDimen = function(inst, ...)
+                    local dimen = inst.inner_dimen
+                    local true_w = dimen and dimen.w
+                    if dimen and true_w and isEnabled() then dimen.w = true_w - reserved end
+                    local ok, err = pcall(orig_recalc, inst, ...)
+                    if dimen and true_w then dimen.w = true_w end
+                    if not ok then logger.warn("kindleui/vscroll: _recalculateDimen failed:", err) end
+                end
+            end
+        end
+        orig_menu_init(self, ...)
+        if wanted and not self._vlibscroll_bar then
+            local ok, err = pcall(buildOverlay, self)
+            if not ok then logger.warn("kindleui/vscroll: collections overlay failed:", err) end
+            -- Swipe up/down turns pages; left/right no longer does.
+            self.onSwipe = function(menu, arg, ges_ev)
+                if not (menu._vlibscroll_bar and isEnabled()) then
+                    return Menu.onSwipe(menu, arg, ges_ev)
+                end
+                local direction = BD.flipDirectionIfMirroredUILayout(ges_ev.direction)
+                if direction == "north" then
+                    menu:onNextPage()
+                elseif direction == "south" then
+                    if ges_ev.pos and ges_ev.pos.y < topZoneHeight() then
+                        return Menu.onSwipe(menu, arg, ges_ev)
+                    end
+                    menu:onPrevPage()
+                elseif direction ~= "west" and direction ~= "east" then
+                    return Menu.onSwipe(menu, arg, ges_ev)
+                end
+                return true
             end
         end
     end

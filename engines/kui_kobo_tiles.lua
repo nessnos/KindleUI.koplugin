@@ -154,6 +154,10 @@ end
 function M.sourceName(src)
     if not src then return "?" end
     if src.kind == "library" then return _("My Books") end
+    if src.kind == "author" and type(src.value) == "string" then
+        local ok_an, AN = pcall(require, "features/library/kui_author_names")
+        if ok_an and AN then return AN.displayName(src.value) end
+    end
     if src.kind == "collection" then
         local TBR = package.loaded["modules/module_tbr"]
         if TBR and TBR.TBR_COLL_NAME == src.value and TBR.getDisplayName then

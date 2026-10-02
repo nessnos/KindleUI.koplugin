@@ -51,6 +51,13 @@ FilterState.DIMENSIONS = {
         multi_value = true,
         repeat_mode = "and",
     },
+    -- KindleUI: KOReader collections (not a bookinfo column; listed by
+    -- features/library/kui_collections_view.lua instead of SQL).
+    collections = {
+        virtual     = true,
+        multi_value = false,
+        repeat_mode = "once",
+    },
 }
 
 FilterState.ORDERED_DIMENSIONS = { "author", "series", "tags" }

@@ -38,6 +38,12 @@ do
     if not ok_vs then logger.err("kindleui: vertical scroll install failed:", tostring(err_vs)) end
 end
 
+-- Collections: "Shuffle" sort method.
+do
+    local ok_cs, err_cs = pcall(function() require("features/library/kui_collection_shuffle").install() end)
+    if not ok_cs then logger.err("kindleui: collection shuffle install failed:", tostring(err_cs)) end
+end
+
 -- No "Opening file…" popup: hook ReaderUI before the first book is opened.
 do
     local ok_bn, err_bn = pcall(function() require("features/kui_book_notices").install() end)

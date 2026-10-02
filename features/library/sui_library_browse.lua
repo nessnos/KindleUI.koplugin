@@ -58,6 +58,7 @@ local DIM_LABELS = {
     author = _("Authors"),
     series = _("Series"),
     tags   = _("Tags"),
+    collections = _("Collections"),
 }
 
 -- ---------------------------------------------------------------------------
@@ -156,6 +157,73 @@ function M.setSavedMode(mode)
 end
 
 -- ---------------------------------------------------------------------------
+-- KindleUI: remembered library view
+-- ---------------------------------------------------------------------------
+-- The view the user last picked (sort button in the Library title bar, or a
+-- navbar / quick action): "normal" (all books), "author", "series", "tags"
+-- or "collections". The Library tab and "close book → Library" bring it
+-- back, instead of always resetting to all books. Kept apart from
+-- simpleui_browsemeta_mode, which other code also writes as a side effect.
+
+local _VIEW_KEY = "kindleui_library_view"
+local _VIEWS = { normal = true, author = true, series = true, tags = true, collections = true }
+
+function M.getLibraryView()
+    local v = SUISettings:readSetting(_VIEW_KEY)
+    return _VIEWS[v] and v or "normal"
+end
+
+function M.setLibraryView(view)
+    if _VIEWS[view] then SUISettings:saveSetting(_VIEW_KEY, view) end
+end
+
+local function _collectionsOpen(fm)
+    local c = fm and fm.collections
+    return c and (c.coll_list or c.booklist_menu) and true or false
+end
+
+-- Opens the view for `view` from the current FM state.
+local function _openView(fm, view)
+    local fc = fm and fm.file_chooser
+    if not fc then return end
+    if view == "collections" and M.isEnabled() then
+        if not M.isAtVirtualRoot(fc, view) then M.navigateTo(fm, view) end
+    elseif view == "collections" then
+        if fm.collections and not _collectionsOpen(fm) then
+            require("ui/uimanager"):nextTick(function()
+                if fm.collections and not _collectionsOpen(fm) then
+                    pcall(function() fm.collections:onShowCollList() end)
+                end
+            end)
+        end
+    elseif view == "author" or view == "series" or view == "tags" then
+        if not M.isEnabled() then return end
+        if not M.isAtVirtualRoot(fc, view) then M.navigateTo(fm, view) end
+    end
+end
+
+-- The user picked a view (sort button, navbar, quick action): remember it
+-- and show it.
+function M.chooseView(fm, view)
+    M.setLibraryView(view)
+    if view == "normal" then
+        if VirtualPath.isVirtual(fm and fm.file_chooser and fm.file_chooser.path) then
+            M.navigateTo(fm, "normal")
+        end
+        return
+    end
+    _openView(fm, view)
+end
+
+-- Called after the Library has been shown at its home folder: brings the
+-- remembered view back.
+function M.applyLibraryView(fm)
+    local view = M.getLibraryView()
+    if view == "normal" then return end
+    _openView(fm, view)
+end
+
+-- ---------------------------------------------------------------------------
 -- Navigation
 -- ---------------------------------------------------------------------------
 
@@ -166,6 +234,9 @@ function M.exitToNormal(fc, fm)
     -- (caught upstream by a pcall), the next session never tries to restore a
     -- virtual path with the patches absent.
     M.setSavedMode("normal")
+    -- Leaving a browse view with Back (or picking "All books") means the
+    -- Library should show all books next time too.
+    M.setLibraryView("normal")
     fc._browse_by_meta_entry_path = nil
     if fm then fm._navbar_suppress_path_change = true end
     fc:changeToPath(base)
@@ -434,6 +505,22 @@ local function _getVirtualList(fc, path, collate)
     -- ever got a chance to query anything.
     if not base_dir then return dirs, files end
     if level == "dim_list" and not active_dimension then return dirs, files end
+
+    -- KindleUI: collections come from ReadCollection, not the bookinfo DB.
+    do
+        local trail = filter_state and filter_state.trail or {}
+        local last  = trail[#trail]
+        if (level == "dim_list" and active_dimension == "collections")
+                or (level == "file_list" and last and last.dimension == "collections") then
+            local CV = require("features/library/kui_collections_view")
+            if level == "dim_list" then
+                local overrides = SUISettings:readSetting("simpleui_fc_covers") or {}
+                return CV.buildDirs(fc, base_dir, collate, VirtualPath, _fakeAttr, overrides), files
+            end
+            if last.value == false then return dirs, files end
+            return dirs, CV.buildFiles(fc, path, last.value, collate)
+        end
+    end
     _ensureCacheBaseDir(base_dir)
 
     local ok_bim, bim = pcall(require, "bookinfomanager")
@@ -497,7 +584,7 @@ local function _getVirtualList(fc, path, collate)
 
         for i, entry in ipairs(values) do
             local val   = entry[1]
-            local label = VirtualPath.displayValue(val)
+            local label = VirtualPath.displayValue(val, active_dimension)
             local vpath = VirtualPath.buildLeaf(base_dir, filter_state, active_dimension, val)
 
             if collate then
@@ -758,6 +845,10 @@ local function _installPatches()
                 -- "Create collection". In list mode the full context menu
                 -- (onMenuHold below) fires first and showFileDialog is never
                 -- reached for leaf items; this branch handles the mosaic path.
+                if item.is_virtual_meta_leaf and item.kui_collection then
+                    require("features/library/kui_collections_view").showHoldDialog(fc, item)
+                    return true
+                end
                 if item.is_virtual_meta_leaf then
                     local _b, filter_state = VirtualPath.parse(item.path)
                     local trail = filter_state.trail
@@ -783,6 +874,24 @@ local function _installPatches()
             -- modes. In mosaic/grid mode this handler is not reached for
             -- folder items — CoverBrowser routes those through showFileDialog
             -- instead (handled above).
+            if item and item.path and item.is_virtual_meta_leaf and item.kui_collection then
+                local extra = {}
+                local in_list_view = fc and fc.display_mode_type == "list"
+                local ok_fc_mod, FC = pcall(require, "features/library/sui_foldercovers")
+                local style = (ok_fc_mod and FC and FC.resolveStyle) and FC.resolveStyle(fc, item.path, item) or "single"
+                local dlg
+                if style ~= "quad" or in_list_view then
+                    extra[1] = {{
+                        text = _("Set folder cover"),
+                        callback = function()
+                            require("ui/uimanager"):close(dlg)
+                            M.openVirtualCoverPicker(item.path, fc)
+                        end,
+                    }}
+                end
+                dlg = require("features/library/kui_collections_view").showHoldDialog(fc, item, extra)
+                return true
+            end
             if item and item.path and item.is_virtual_meta_leaf then
                 local UIManager    = require("ui/uimanager")
                 local ButtonDialog = require("ui/widget/buttondialog")
@@ -927,7 +1036,7 @@ local function _getVirtualSubtitle(path)
     local trail = filter_state.trail
     local last  = trail[#trail]
     if last then
-        return VirtualPath.displayValue(last.value)
+        return VirtualPath.displayValue(last.value, last.dimension)
     end
     if active_dimension then return DIM_LABELS[active_dimension] end
     return nil
@@ -978,6 +1087,7 @@ function M.install()
         _installPatches()
         _installFMSafetyPatches()
         _installTitleBarPathPatch()
+        require("features/library/kui_collections_view").installRedirect()
     end)
     if not ok then
         logger.warn("sui_library_browse: install error:", tostring(err))

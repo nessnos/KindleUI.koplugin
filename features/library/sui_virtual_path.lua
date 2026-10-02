@@ -69,8 +69,16 @@ local function decodeValue(fragment)
     return (raw:gsub("%%2F", "/"))
 end
 
-function VirtualPath.displayValue(value)
+function VirtualPath.displayValue(value, dimension)
     if value == false or value == nil then return "(none)" end
+    if dimension == "author" then
+        -- KindleUI: "Last, First" is shown as "First Last".
+        local ok_an, AN = pcall(require, "features/library/kui_author_names")
+        if ok_an and AN then return AN.displayName(tostring(value)) end
+    elseif dimension == "collections" then
+        local ok_cv, CV = pcall(require, "features/library/kui_collections_view")
+        if ok_cv and CV then return CV.displayName(tostring(value)) end
+    end
     return tostring(value)
 end
 

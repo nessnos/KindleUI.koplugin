@@ -340,11 +340,18 @@ local function computeFacetValues(files, definition)
         out[#out + 1] = { value, count, _first = first[value] }
     end
 
+    -- KindleUI: authors are sorted by last name (shown as "First Last").
+    local by_last = false
+    if definition.column == "authors" then
+        local ok_an, AN = pcall(require, "features/library/kui_author_names")
+        if ok_an and AN and AN.isEnabled() then by_last = AN end
+    end
     table.sort(out, function(a, b)
         local av, bv = a[1], b[1]
         if av == bv then return false end
         if not av or av == false or av == "" then return false end
         if not bv or bv == false or bv == "" then return true end
+        if by_last then return by_last.less(av, bv, ffiUtil.strcoll) end
         return ffiUtil.strcoll(av, bv)
     end)
 

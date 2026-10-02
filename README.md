@@ -149,6 +149,15 @@ With text labels on, the group's name gets a small up chevron. The group's tab s
 
 - **Vertical scrolling library** (Settings → Library). Swipe up or down to turn pages.
   - A KindleOS-style scrollbar sits on the right: a triangle at each end (grey when you can't go further), a thin track, and a black bar for where you are.
+- **Browse button** (top right of the Library): *All books*, *Authors*, *Series*, *Collections* or *Tags*.
+  - The Library **remembers your choice**. Open a book, go Home, come back with the Library tab: you're back in the same view.
+  - Back from the top of Authors/Series/Collections/Tags, or *All books*, goes back to showing all books.
+  - Picking Authors, Series or Collections from a navigation bar group is remembered too.
+- **Collections view**, drawn like Series: one folder per collection, shown as a stack: the first book's cover with stacked edges, the book count and the name. It follows the Library's list / mosaic mode. Tap a collection to see its books, in the collection's own sort order.
+  - Long-press a collection for *Open collection (sort, filter…)* (KOReader's own collection screen), *Manage collections* (create, rename, delete…) and, where it applies, *Set folder cover*.
+  - The navigation bar's Collections action opens this view too. It replaces the `2-collections-mosaic.lua` patch.
+- **Shuffle sort** for collections: open a collection (long-press → *Open collection*), tap the menu icon → *Sort by* → **Shuffle**. Its books get a new random order every time Home opens (so Featured Collection shows different covers), every time you open the collection, and when you tap Shuffle again. Any other sort method turns it off. It replaces the `2-collection-shuffle.lua` patch.
+- **Authors sorted by last name** ("Hazelwood", "Le Guin", "Maas"…) but shown as "First Last". "Herbert, Frank" is shown as "Frank Herbert". Switch it off under Settings → Library → *Sort Authors by Last Name*.
 - **Browse by author and series**, folder covers, series grouping and more (from SimpleUI).
 - Author and series views don't show the "Page x of y" line at the bottom, so it can't sit behind the Current Book cover.
 
@@ -196,6 +205,9 @@ KindleUI started from SimpleUI. The main additions:
 | `features/kui_topmenu.lua` | Makes the panel the top menu. |
 | `features/kui_vertical_scroll.lua` | Vertical library scrolling and the scrollbar. |
 | `features/kui_book_notices.lua` | Hides the opening / closing book popups. |
+| `features/library/kui_author_names.lua` | Author last-name sort keys and "First Last" display. |
+| `features/library/kui_collections_view.lua` | Collections as a Library browse view. |
+| `features/library/kui_collection_shuffle.lua` | The Shuffle sort method for collections. |
 | `screens/kui_navbar_dropdown.lua` | The group menu on the navigation bar. |
 | `modules/module_two_col.lua` | Two Columns. |
 | `modules/module_meta_row.lua` | Author / Series Collection. |

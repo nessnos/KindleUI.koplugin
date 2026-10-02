@@ -255,6 +255,9 @@ local function _goHome(target_fm)
     if target_fm.updateTitleBarPath then
         pcall(function() target_fm:updateTitleBarPath(home, true) end)
     end
+    -- KindleUI: bring back the library view the user last picked.
+    local ok_bm, BM = pcall(_BM)
+    if ok_bm and BM and BM.applyLibraryView then pcall(BM.applyLibraryView, target_fm) end
     return true
 end
 
@@ -754,7 +757,16 @@ local function _registerBuiltins()
             execute = function(ctx)
                 local fm = ctx.fm or _liveFM()
                 local su = ctx.show_unavailable or _unavailToast
-                if fm and fm.collections then fm.collections:onShowCollList()
+                local ok_bm, BM = pcall(_BM)
+                if ok_bm and BM and BM.setLibraryView then BM.setLibraryView("collections") end
+                -- KindleUI: with library browsing on, collections open as a
+                -- Library view (folder covers like Series).
+                local fc = fm and fm.file_chooser
+                if fc and ok_bm and BM and BM.isEnabled and BM.isEnabled() then
+                    if ctx.already_active then BM.navigateToRoot(fc, fm, "collections")
+                    else BM.navigateTo(fm, "collections") end
+                elseif fm and fm.collections then
+                    fm.collections:onShowCollList()
                 else su(_("Collections not available.")) end
             end,
         },
@@ -1033,6 +1045,7 @@ local function _registerBuiltins()
                 local fm = ctx.fm or _liveFM()
                 local fc = fm and fm.file_chooser
                 if not fc then return end
+                if BM.setLibraryView then BM.setLibraryView("author") end
                 if ctx.already_active then BM.navigateToRoot(fc, fm, "author")
                 else BM.navigateTo(fm, "author") end
             end,
@@ -1051,6 +1064,7 @@ local function _registerBuiltins()
                 local fm = ctx.fm or _liveFM()
                 local fc = fm and fm.file_chooser
                 if not fc then return end
+                if BM.setLibraryView then BM.setLibraryView("series") end
                 if ctx.already_active then BM.navigateToRoot(fc, fm, "series")
                 else BM.navigateTo(fm, "series") end
             end,
@@ -1069,6 +1083,7 @@ local function _registerBuiltins()
                 local fm = ctx.fm or _liveFM()
                 local fc = fm and fm.file_chooser
                 if not fc then return end
+                if BM.setLibraryView then BM.setLibraryView("tags") end
                 if ctx.already_active then BM.navigateToRoot(fc, fm, "tags")
                 else BM.navigateTo(fm, "tags") end
             end,
