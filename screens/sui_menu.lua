@@ -2930,11 +2930,11 @@ SimpleUIPlugin.addToMainMenu = function(self, menu_items)
             },
             -- ── Group by Book Series ──────────────────────────────────────────
             {
-                text           = _("Group by Book Series"),
+                text           = _("Group Series in All Books"),
+                help_text      = _("In the All books view, the books of a series are shown as one stack, sorted among the other books with the chosen sort method. Also in the Library's browse button."),
                 checked_func   = function() return FC.getSeriesGrouping() end,
                 keep_menu_open = true,
                 separator      = true,
-                enabled_func   = function() return FC.isEnabled() end,
                 callback       = function()
                     FC.setSeriesGrouping(not FC.getSeriesGrouping())
                     FC.invalidateCache()

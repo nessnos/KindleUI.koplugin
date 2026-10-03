@@ -1042,6 +1042,28 @@ function M.apply(fm_self)
                                 {{ text = _check("series")      .. _("Series"),      callback = function() _navigate(dlg, "series")      end }},
                                 {{ text = _check("collections") .. _("Collections"), callback = function() _navigate(dlg, "collections") end }},
                                 {{ text = _check("tags")        .. _("Tags"),        callback = function() _navigate(dlg, "tags")        end }},
+                                {},
+                                {{
+                                    -- KindleUI: series as stacks in All books.
+                                    text = (function()
+                                        local ok_fc, FC = pcall(require, "features/library/sui_foldercovers")
+                                        local on = ok_fc and FC and FC.getSeriesGrouping()
+                                        return (on and "\u{2713} " or "  ") .. _("Group series in All books")
+                                    end)(),
+                                    callback = function()
+                                        UIManager:close(dlg)
+                                        local ok_fc, FC = pcall(require, "features/library/sui_foldercovers")
+                                        if not (ok_fc and FC) then return end
+                                        FC.setSeriesGrouping(not FC.getSeriesGrouping())
+                                        pcall(FC.invalidateCache)
+                                        local fc_now = fm_self.file_chooser
+                                        if fc_now then
+                                            fm_self._navbar_suppress_path_change = true
+                                            pcall(function() fc_now:refreshPath() end)
+                                            fm_self._navbar_suppress_path_change = nil
+                                        end
+                                    end,
+                                }},
                                 {{ text = _("Cancel"),                                callback = function() UIManager:close(dlg)          end }},
                             },
                         }
