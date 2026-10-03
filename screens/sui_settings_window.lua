@@ -836,12 +836,27 @@ local function buildScreens(st)
         -- and skip instances of instanciable modules (they have "_row_" in their id).
         for _, mod in ipairs(Registry.list()) do
             local is_instance = mod.id:match("_row_") ~= nil
-            if not active_set[mod.id] and not is_instance then
+            -- KindleUI: a module left in the layout but switched off (e.g.
+            -- the Clock with every item hidden) is invisible on the Home
+            -- screen, so it is offered here again.
+            local placed_but_off = active_set[mod.id] and type(mod.isEnabled) == "function"
+                and not mod.isEnabled(st.pfx)
+            if (not active_set[mod.id] or placed_but_off) and not is_instance then
                 local _mod_id = mod.id
+                local _mod = mod
                 table.insert(items, SUI.ListRow{
                     title   = mod.name,
                     inner_w = iw,
                     on_tap  = function()
+                        -- Drop any old (invisible) copy before adding it here.
+                        for _p, page in ipairs(st.layout.pages) do
+                            for i = #page.modules, 1, -1 do
+                                if LayoutService.entryId(page.modules[i]) == _mod_id then
+                                    table.remove(page.modules, i)
+                                end
+                            end
+                        end
+                        if type(_mod.setEnabled) == "function" then pcall(_mod.setEnabled, st.pfx, true) end
                         table.insert(st.layout.pages[st.current_page].modules, _mod_id)
                         LayoutService.save(st.layout, st.pfx, st.layout_key, st.screen_id)
                         ctx.pop()
