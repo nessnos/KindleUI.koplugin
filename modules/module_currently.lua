@@ -297,6 +297,11 @@ end
 
 -- KindleUI: "Page 12 of 340", from the book's progress and page count.
 local function _pageText(nd)
+    -- Stable page numbers when the book uses them (KOReader: Settings →
+    -- Stable page numbers → use them in the reader).
+    if nd and nd.page_label and nd.page_label ~= "" and nd.page_label_last and nd.page_label_last ~= "" then
+        return string.format(_("Page %s of %s"), tostring(nd.page_label), tostring(nd.page_label_last))
+    end
     local pages = nd and tonumber(nd.pages)
     if not pages or pages <= 0 then return nil end
     local cur = math.max(1, math.min(pages, math.floor((nd.percent or 0) * pages + 0.5)))

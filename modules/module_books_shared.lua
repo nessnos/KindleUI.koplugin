@@ -676,8 +676,13 @@ function SH.getBookData(filepath, prefetched)
     local meta = {}
     local percent, pages, md5, stat_pages, stat_total_time = 0, nil, nil, nil, nil
     local status, summary = nil, nil
+    -- KindleUI: stable page numbers (KOReader's "reference pages"), saved in
+    -- the sidecar by ReaderPageMap when the book is closed.
+    local page_label, page_label_last = nil, nil
 
     if prefetched then
+        page_label      = prefetched.page_label
+        page_label_last = prefetched.page_label_last
         -- Fast path: use data already extracted by prefetchBooks.
         -- percent/summary may be nil when a keep_cache refresh cleared them
         -- after a hold-dialog status change — re-read only those fields so
@@ -713,6 +718,8 @@ function SH.getBookData(filepath, prefetched)
             if ok2 and ds then
                 percent         = ds:readSetting("percent_finished") or 0
                 pages           = ds:readSetting("doc_pages")
+                page_label      = ds:readSetting("pagemap_current_page_label")
+                page_label_last = ds:readSetting("pagemap_last_page_label")
                 md5             = ds:readSetting("partial_md5_checksum")
                 local rp        = ds:readSetting("doc_props") or {}
                 local rs        = ds:readSetting("stats") or {}
@@ -810,6 +817,8 @@ function SH.getBookData(filepath, prefetched)
         authors     = meta.authors or "",
         description = meta.description or "",
         pages       = pages,
+        page_label      = page_label,
+        page_label_last = page_label_last,
         avg_time    = avg_time,
         status      = status, -- "complete" | "abandoned" | nil ("reading"/unset)
     }
@@ -1037,6 +1046,8 @@ function SH.prefetchBooks(show_currently, show_recent, max_recent, opts)
                                 authors              = _a,
                                 description          = description,
                                 doc_pages            = ds:readSetting("doc_pages"),
+                                page_label           = ds:readSetting("pagemap_current_page_label"),
+                                page_label_last      = ds:readSetting("pagemap_last_page_label"),
                                 partial_md5_checksum = ds:readSetting("partial_md5_checksum"),
                                 stat_pages           = rs.pages,
                                 stat_total_time      = rs.total_time_in_sec,
@@ -1100,6 +1111,8 @@ function SH.prefetchBooks(show_currently, show_recent, max_recent, opts)
                                 title                = _t,
                                 authors              = _a,
                                 doc_pages            = ds:readSetting("doc_pages"),
+                                page_label           = ds:readSetting("pagemap_current_page_label"),
+                                page_label_last      = ds:readSetting("pagemap_last_page_label"),
                                 partial_md5_checksum = ds:readSetting("partial_md5_checksum"),
                                 stat_pages           = rs.pages,
                                 stat_total_time      = rs.total_time_in_sec,
