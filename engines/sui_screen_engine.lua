@@ -435,6 +435,11 @@ end
 -- local function, not a ScreenWidget method, called from inside one.
 local function pageNavFor(self, mod, ctx)
     if not ctx then return nil end
+    -- KindleUI: a module can supply its own chevrons (e.g. the Reading
+    -- Calendar's previous / next month).
+    if type(mod.label_nav_func) == "function" then
+        return mod.label_nav_func(ctx, self)
+    end
     local npages = ctx["_row_npages_" .. mod.id]
     if not npages or npages <= 1 then return nil end
     local page = ctx["_row_page_" .. mod.id] or 1
@@ -2048,7 +2053,27 @@ function ScreenWidget:_updateFooter(current_page, total_pages, topbar_on)
         fd.bar_input.dimen.w  = total_w
         fd.bar_input.dimen.h  = dw.bar_h
         fd.widget.dimen.w     = sw
-        footer_bc[1]          = fd.widget
+        -- KindleUI: lift the dots above the Current Book cover when it is on
+        -- the navigation bar (the cover rises above the bar).
+        local lift = 0
+        pcall(function()
+            for _i, tid in ipairs(Config.loadTabConfig()) do
+                if tid == "current_book" then
+                    local _cw, _ch, _bp, protrude = Bottombar.currentBookCoverGeometry()
+                    lift = (protrude or 0) + Screen:scaleBySize(4)
+                    break
+                end
+            end
+        end)
+        if lift > 0 then
+            fd.lift_span = fd.lift_span or VerticalSpan:new{ width = 0 }
+            fd.lift_span.width = lift
+            fd.lifted = fd.lifted or VerticalGroup:new{ align = "center", fd.widget, fd.lift_span }
+            fd.lifted:resetLayout()
+            footer_bc[1] = fd.lifted
+        else
+            footer_bc[1] = fd.widget
+        end
     else
         local fc = self._footer_chevron
         fc.btn_text:setText(T(_("Page %1 of %2"), current_page, total_pages))
