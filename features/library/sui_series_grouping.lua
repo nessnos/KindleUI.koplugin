@@ -173,10 +173,17 @@ local function sgProcessItemTable(item_table, file_chooser)
                             sort_percent     = item.sort_percent,
                             percent_finished = item.percent_finished,
                             opened           = item.opened,
-                            doc_props        = item.doc_props or {
+                            -- KindleUI: the group sorts as the series
+                            -- itself (title = series name), not as its
+                            -- first book.
+                            doc_props        = {
                                 series        = sname,
                                 series_index  = 0,
                                 display_title = sname,
+                                title         = sname,
+                                authors       = doc_props.authors,
+                                keywords      = doc_props.keywords,
+                                language      = doc_props.language,
                             },
                             suffix = item.suffix,
                         }
@@ -215,6 +222,21 @@ local function sgProcessItemTable(item_table, file_chooser)
             table.sort(items, function(a, b)
                 return (a._sg_series_index or 0) < (b._sg_series_index or 0)
             end)
+            -- KindleUI: date / size sorts use the series' most recent book
+            -- (and the total size), like KindleOS.
+            local attr = group.attr or {}
+            for _i, it in ipairs(items) do
+                local a = it.attr
+                if a then
+                    for _k, key in ipairs({ "access", "modification", "change" }) do
+                        if a[key] and (not attr[key] or a[key] > attr[key]) then attr[key] = a[key] end
+                    end
+                end
+            end
+            local size = 0
+            for _i, it in ipairs(items) do size = size + ((it.attr and it.attr.size) or 0) end
+            attr.size = size
+            group.attr = attr
             group.mandatory             = tostring(#items) .. " \u{F016}"
             _sg_items_cache[group.path] = items
         end
@@ -247,7 +269,11 @@ local function sgProcessItemTable(item_table, file_chooser)
         for _, item in ipairs(processed) do
             if item.is_go_up then
                 up_item = item
-            elseif item.is_directory or item.is_series_group
+            elseif item.is_series_group then
+                -- KindleUI: series groups sit among the books, sorted
+                -- with them, rather than with the real folders.
+                files[#files + 1] = item
+            elseif item.is_directory
                 or (item.attr and item.attr.mode == "directory")
                 or item.mode == "directory"
             then
