@@ -116,6 +116,19 @@ local function sgProcessItemTable(item_table, file_chooser)
     if not file_chooser or not item_table     then return end
     if item_table._sg_is_series_view          then return end
     if file_chooser.show_current_dir_for_hold then return end
+    -- KindleUI: never touch the Library's browse views (Authors, Series,
+    -- Tags, Collections). They keep their own order (authors by last
+    -- name, series alphabetically); re-sorting them here with the file
+    -- browser's sort method scrambled that order.
+    do
+        local ok_vp, VP = pcall(require, "features/library/sui_virtual_path")
+        if ok_vp and VP then
+            if VP.isVirtual(file_chooser.path) then return end
+            for _i, it in ipairs(item_table) do
+                if it.path and VP.isVirtual(it.path) and not it.is_go_up then return end
+            end
+        end
+    end
 
     -- Evict stale _sg_items_cache entries for the current directory.
     local current_path = file_chooser.path
@@ -211,6 +224,14 @@ local function sgProcessItemTable(item_table, file_chooser)
         if series_count > 1 then break end
     end
     if series_count == 1 and no_series_count == 0 and book_count > 0 then return end
+
+    -- KindleUI: nothing to group (no series with 2+ books) → leave the
+    -- list exactly as the file browser built it.
+    local any_group = false
+    for _k, group in pairs(series_map) do
+        if #group.series_items > 1 then any_group = true break end
+    end
+    if not any_group then return end
 
     -- Ungroup singleton series; sort and cache multi-book groups.
     for _, group in pairs(series_map) do
