@@ -87,7 +87,8 @@ Long-press a button to open its settings. The **KOReader** button is always ther
   - Add a custom button.
   - Arrange buttons.
   - Buttons per row (3–8).
-  - Each button has *Show in quick settings*, *Name* and *Icon*. Custom buttons also have *Action* (any KindleUI or KOReader action) and *Delete*.
+  - Each button has *Show in quick settings*, *Show in*, *Name* and *Icon*. Custom buttons also have *Action* (any KindleUI or KOReader action) and *Delete*.
+  - **Show in** (new in 2.0): *Everywhere*, *Only while reading* or *Only in Library & Home*. So quick settings can show, say, Rotate and a font button while you read, and Wi-Fi, Home and Library in the Library — from one list, in one order. The Buttons list shows where each one appears.
   - **Capture mode.** *Add a button from KOReader's menu*, or *Action → Pick from KOReader's menu (capture)*, opens KOReader's own menu. Go to any item, even one without a gesture action (a plugin entry, a setting…), and tap it: instead of running, it becomes the button's action. Closing the menu cancels.
   - Built in: KOReader, Wi-Fi, Light, Dark mode, Rotate, Sleep, Screenshot, Search, Home, Library, Settings, Restart, Exit.
 - **Slider options.** Brightness slider, warmth slider (on devices with warm light), − / + buttons.
