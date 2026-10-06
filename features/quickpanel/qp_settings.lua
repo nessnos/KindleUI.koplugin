@@ -153,6 +153,37 @@ function M.buttonItems(id, refresh)
                 refresh()
             end,
         }
+        -- KindleUI 2.0: where the button appears.
+        local SHOW_IN_LABELS = {
+            all     = _("Everywhere"),
+            reader  = _("Only while reading"),
+            library = _("Only in Library & Home"),
+        }
+        items[#items + 1] = {
+            text = _("Show in"),
+            help_text = _("Where this button appears: everywhere, only when you open quick settings while reading a book, or only in the Library and on the Home screen."),
+            enabled_func = function()
+                local cur = Store.getButton(id); return cur and cur.enabled
+            end,
+            value_func = function()
+                return SHOW_IN_LABELS[Store.showIn(Store.getButton(id))]
+            end,
+            sub_item_table_func = function()
+                local sub = {}
+                for _i, where in ipairs(Store.SHOW_IN) do
+                    local _w = where
+                    sub[#sub + 1] = {
+                        text = SHOW_IN_LABELS[_w], radio = true, keep_menu_open = true,
+                        checked_func = function() return Store.showIn(Store.getButton(id)) == _w end,
+                        callback = function()
+                            Store.updateButton(id, { show_in = (_w ~= "all") and _w or Store.NIL })
+                            refresh()
+                        end,
+                    }
+                end
+                return sub
+            end,
+        }
     end
 
     if def and def.dynamic_label then
@@ -269,7 +300,10 @@ function M.makeMenuItems(ctx_menu)
                 local sort_items = {}
                 for _i, bt in ipairs(list) do
                     sort_items[#sort_items + 1] = {
-                        text = Actions.label(bt) .. (bt.enabled and "" or ("  (" .. _("hidden") .. ")")),
+                        text = Actions.label(bt) .. (not bt.enabled and ("  (" .. _("hidden") .. ")")
+                            or (Store.showIn(bt) == "reader" and ("  (" .. _("reading") .. ")"))
+                            or (Store.showIn(bt) == "library" and ("  (" .. _("Library & Home") .. ")"))
+                            or ""),
                         button = bt,
                     }
                 end
@@ -315,7 +349,11 @@ function M.makeMenuItems(ctx_menu)
                         local cur = Store.getButton(bid)
                         if not cur then return "" end
                         if Actions.BUILTIN[bid] and Actions.BUILTIN[bid].locked then return _("Always") end
-                        return cur.enabled and _("Shown") or _("Hidden")
+                        if not cur.enabled then return _("Hidden") end
+                        local where = Store.showIn(cur)
+                        if where == "reader" then return _("Reading") end
+                        if where == "library" then return _("Library & Home") end
+                        return _("Shown")
                     end,
                     sub_item_table_func = function() return M.buttonItems(bid, refresh) end,
                 }

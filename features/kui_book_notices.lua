@@ -7,8 +7,10 @@ until the book is ready, like KindleOS. The "Closing book…" notice is skipped
 in main.lua (onCloseDocument) under the same setting.
 
 Setting: kindleui_hide_book_notices (default on).
-How: while showReaderCoroutine runs, UIManager:show skips InfoMessages with
-timeout == 0 (the self-closing loading notice). Error messages have no
+How: while showReaderCoroutine runs, InfoMessages with timeout == 0 (the
+self-closing loading notice) are shown invisibly, the way KOReader does for
+"seamless" opening (skipping them would leave no window open and KOReader
+would quit). Error messages have no
 timeout, so they still show. Language independent.
 ]]
 
@@ -39,7 +41,11 @@ function M.install()
     UIManager.show = function(self, widget, ...)
         if depth > 0 and type(widget) == "table" and widget.timeout == 0
                 and getmetatable(widget) == InfoMessage then
-            return
+            -- Shown invisibly rather than skipped: KOReader has just closed
+            -- the file browser, and this message is the only window left
+            -- until the book opens. With no window at all, KOReader would
+            -- think everything is closed and quit.
+            widget.invisible = true
         end
         return orig_show(self, widget, ...)
     end

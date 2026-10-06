@@ -125,11 +125,36 @@ function Store.deleteButton(id)
     Store.setButtons(list)
 end
 
---- The buttons shown in the panel, in order.
-function Store.getVisibleButtons()
+-- KindleUI 2.0: where a button appears. b.show_in is
+--   nil / "all"  → everywhere (the default, so older setups are unchanged)
+--   "reader"     → only when quick settings is opened while reading
+--   "library"    → only in the Library and on the Home screen
+Store.SHOW_IN = { "all", "reader", "library" }
+
+function Store.showIn(b)
+    local v = b and b.show_in
+    if v == "reader" or v == "library" then return v end
+    return "all"
+end
+
+--- Where quick settings is being opened: "reader" when a book is open,
+--- otherwise "library" (Library, Home screen, other KindleUI screens).
+function Store.currentContext()
+    local RUI = package.loaded["apps/reader/readerui"]
+    if RUI and RUI.instance and RUI.instance.document and not RUI.instance.tearing_down then
+        return "reader"
+    end
+    return "library"
+end
+
+--- The buttons shown in the panel, in order. `context` ("reader" or
+--- "library") defaults to where it's opened now.
+function Store.getVisibleButtons(context)
+    context = context or Store.currentContext()
     local out = {}
     for _i, b in ipairs(Store.getButtons()) do
-        if b.enabled then out[#out + 1] = b end
+        local where = Store.showIn(b)
+        if b.enabled and (where == "all" or where == context) then out[#out + 1] = b end
     end
     return out
 end
