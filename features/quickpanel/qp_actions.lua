@@ -293,7 +293,9 @@ function A.actionTitle(action)
     end
     if action.kind == "menu" and type(action.path) == "table" then
         -- captured from KOReader's menu
-        return table.concat(action.path, " \u{203A} ")
+        local t = table.concat(action.path, " \u{203A} ")
+        if action.open_submenu then t = t .. " " .. _("(opens menu)") end
+        return t
     end
     return _("None")
 end

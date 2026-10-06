@@ -129,6 +129,29 @@ local function install()
         return true
     end
 
+    -- Long-press captures any entry, a submenu included (e.g. a plugin's
+    -- entry under More tools): pressing the button later opens KOReader's
+    -- menu right at that submenu.
+    local orig_hold = TouchMenu.onMenuHold
+    TouchMenu.onMenuHold = function(self, item, text_truncated)
+        if not M.isActive() then return orig_hold(self, item, text_truncated) end
+        local text = menuText(item) or "?"
+        local path = {}
+        for _i, p in ipairs(_state.path) do path[#path + 1] = p end
+        path[#path + 1] = text
+        local root_id = _state.root_id
+        if #_state.path == 0 then root_id = menuIdOf(_state.menu, item) end
+        local is_sub = item.sub_item_table ~= nil or item.sub_item_table_func ~= nil
+        local action = {
+            kind = "menu", path = path, root_id = root_id,
+            context = _state.context, title = text,
+            open_submenu = is_sub or nil,
+        }
+        self:closeMenu()
+        finish(action)
+        return true
+    end
+
     local orig_back = TouchMenu.backToUpperMenu
     TouchMenu.backToUpperMenu = function(self, no_close)
         if M.isActive() and #self.item_table_stack ~= 0 and #_state.path > 0 then
@@ -173,7 +196,7 @@ function M.start(on_done)
     UIManager:nextTick(function()
         TM.openFullMenu()
         UIManager:show(require("ui/widget/infomessage"):new{
-            text = _("Capture mode: open the menu item you want and tap it.\nIt won't run now, it becomes the button's action.\nClose the menu to cancel."),
+            text = _("Capture mode: go to the menu item you want and long-press it (tapping a final item works too).\nIt won't run now, it becomes the button's action. Long-press a submenu (e.g. a plugin under More tools) to have the button open the menu there.\nClose the menu to cancel."),
             timeout = 4,
         })
     end)
@@ -245,6 +268,11 @@ function M.run(action)
         return false
     end
 
+    local is_sub = item.sub_item_table ~= nil or item.sub_item_table_func ~= nil
+    if action.open_submenu or (is_sub and not item.callback and not item.callback_func) then
+        return M.openMenuAt(action)
+    end
+
     if item.checkmark_callback and not item.callback then
         pcall(item.checkmark_callback)
         return true
@@ -266,6 +294,54 @@ function M.run(action)
         return ok
     end
     return false
+end
+
+--- Opens KOReader's full menu and walks it to the captured submenu, as if
+--- you had tapped your way there.
+function M.openMenuAt(action)
+    local menu = activeMenu()
+    if not menu then return false end
+    local TM = require("features/kui_topmenu")
+    TM.closeOverlays()
+    UIManager:nextTick(function()
+        TM.openFullMenu()
+        UIManager:nextTick(function()
+            local tm = menu.menu_container and menu.menu_container[1]
+            if not (tm and tm.switchMenuTab and type(tm.tab_item_table) == "table") then return end
+            -- tab that holds the first step
+            local first
+            if action.root_id and type(menu.menu_items) == "table" then first = menu.menu_items[action.root_id] end
+            local tab_idx
+            for i, tab in ipairs(tm.tab_item_table) do
+                for _j, it in ipairs(tab) do
+                    if (first and it == first) or (not first and type(it) == "table" and menuText(it) == action.path[1]) then
+                        tab_idx = i; first = it; break
+                    end
+                end
+                if tab_idx then break end
+            end
+            if not tab_idx then
+                local fi = findIn
+                for i, tab in ipairs(tm.tab_item_table) do
+                    local it = fi(tab, action.path[1])
+                    if it then tab_idx = i; first = it; break end
+                end
+            end
+            if not tab_idx then return end
+            pcall(tm.switchMenuTab, tm, tab_idx)
+            local item = first
+            for i = 1, #action.path do
+                if i > 1 then item = findIn(tm.item_table, action.path[i]) end
+                if not item then break end
+                if item.sub_item_table or item.sub_item_table_func then
+                    pcall(tm.onMenuSelect, tm, item)
+                else
+                    break
+                end
+            end
+        end)
+    end)
+    return true
 end
 
 return M
