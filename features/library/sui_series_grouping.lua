@@ -254,8 +254,12 @@ local function sgProcessItemTable(item_table, file_chooser)
                     end
                 end
             end
-            local size = 0
-            for _i, it in ipairs(items) do size = size + ((it.attr and it.attr.size) or 0) end
+            local size, last = 0, nil
+            for _i, it in ipairs(items) do
+                size = size + ((it.attr and it.attr.size) or 0)
+                if it.last_opened and (not last or it.last_opened > last) then last = it.last_opened end
+            end
+            group.last_opened = last -- "last opened" sort: the series' latest book
             attr.size = size
             group.attr = attr
             group.mandatory             = tostring(#items) .. " \u{F016}"

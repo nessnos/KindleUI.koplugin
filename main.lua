@@ -38,6 +38,12 @@ do
     if not ok_vs then logger.err("kindleui: vertical scroll install failed:", tostring(err_vs)) end
 end
 
+-- Library: "last opened" sort method.
+do
+    local ok_lo, err_lo = pcall(function() require("features/library/kui_last_opened").install() end)
+    if not ok_lo then logger.err("kindleui: last opened sort install failed:", tostring(err_lo)) end
+end
+
 -- Collections: "Shuffle" sort method.
 do
     local ok_cs, err_cs = pcall(function() require("features/library/kui_collection_shuffle").install() end)

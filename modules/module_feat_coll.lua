@@ -101,7 +101,14 @@ local function makeInstance(inst_id)
     local function getFileList(pfx)
         local name = getCollName(pfx)
         if not name then return {} end
-        return GridRenderer.getCollectionFileList(name)
+        local list = GridRenderer.getCollectionFileList(name)
+        -- KindleUI: "Last opened" is a live sort (re-applied every time),
+        -- unlike the one-shot sorts below that rewrite the collection order.
+        if getLastSortMode(pfx) == "last_opened" then
+            local ok_lo, LO = pcall(require, "features/library/kui_last_opened")
+            if ok_lo and LO then LO.sortPaths(list) end
+        end
+        return list
     end
 
     -- ── Featured Collection-specific menu items: collection picker,
@@ -169,8 +176,9 @@ local function makeInstance(inst_id)
             percent_asc  = _lc("% Read (ascending)"),
             percent_desc = _lc("% Read (descending)"),
             shuffle      = _lc("Shuffle"),
+            last_opened  = _lc("Last opened"),
         }
-        local SORT_ORDER = { "title_asc", "title_desc", "author_asc", "percent_asc", "percent_desc", "shuffle" }
+        local SORT_ORDER = { "last_opened", "title_asc", "title_desc", "author_asc", "percent_asc", "percent_desc", "shuffle" }
         items[#items + 1] = {
             text_func = function() return _lc("Sort") end,
             mandatory_func = function() return SORT_LABELS[getLastSortMode(pfx)] or "" end,
@@ -188,7 +196,9 @@ local function makeInstance(inst_id)
                         keep_menu_open = true,
                         callback       = function()
                             if name then
-                                GridRenderer.sortCollection(name, _m)
+                                -- "Last opened" stays live (applied on every
+                                -- build); the others rewrite the order once.
+                                if _m ~= "last_opened" then GridRenderer.sortCollection(name, _m) end
                                 saveLastSortMode(pfx, _m)
                                 refresh()
                             end
@@ -240,6 +250,8 @@ local function makeInstance(inst_id)
                                 RC:updateCollectionOrder(name, ordered)
                                 RC:write({ [name] = true })
                             end
+                            -- A hand-arranged order replaces a live sort.
+                            if getLastSortMode(pfx) == "last_opened" then saveLastSortMode(pfx, nil) end
                             refresh()
                         end
                         _UIManager:show(SortWidget:new{

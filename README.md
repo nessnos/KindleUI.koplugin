@@ -104,7 +104,7 @@ Add modules from **Settings → Home Screen → Edit Home Screen Layout → Add 
 - **Currently Reading.** The cover, title, author, progress bar and reading stats.
   - *Show cover* can be switched off for a text-only card.
   - *Page progress* adds "Page 3 of 10".
-- **Featured Collection.** Covers from one collection, with the number of books under its title.
+- **Featured Collection.** Covers from one collection, with the number of books under its title. *Sort → Last opened* keeps the most recently opened books first, updated every time (the other sorts reorder the collection once).
 - **Author / Series Collection.** Like a Featured Collection, but it shows one author or series from your library and shuffles to another each time you come back to Home ("Ali Hazelwood", then "A Court of Thorns and Roses"…).
   - Choose authors and/or series, the minimum number of books, and how often to shuffle (every visit, hourly, daily).
 - **Two Columns.** Puts two modules side by side.
@@ -159,6 +159,7 @@ With text labels on, the group's name gets a small up chevron. The group's tab s
   - The navigation bar's Collections action opens this view too. It replaces the `2-collections-mosaic.lua` patch.
 - **Shuffle sort** for collections: open a collection (long-press → *Open collection*), tap the menu icon → *Sort by* → **Shuffle**. Its books get a new random order every time Home opens (so Featured Collection shows different covers), every time you open the collection, and when you tap Shuffle again. Any other sort method turns it off. It replaces the `2-collection-shuffle.lua` patch.
 - **Group series in All books.** Turn it on in the browse button (*Group series in All books*) or under Settings → Library → *Group Series in All Books*. The books of a series become one stack among your other books, like on a Kindle, sorted with the sort method you chose: by title a series sorts under its series name, by date under its most recent book. A series with a single book stays a plain book.
+- **"Last opened" sort.** In the library's *Sort by* menu: books you opened most recently first, using KOReader's reading history (more reliable than KOReader's "last read date", which depends on the file's access time). Books never opened come last; with *Group series in All books* a series sorts by its most recently opened book.
 - **Authors sorted by last name** ("Hazelwood", "Le Guin", "Maas"…) but shown as "First Last". "Herbert, Frank" is shown as "Frank Herbert". Switch it off under Settings → Library → *Sort Authors by Last Name*.
 - **Browse by author and series**, folder covers, series grouping and more (from SimpleUI).
 - Author and series views don't show the "Page x of y" line at the bottom, so it can't sit behind the Current Book cover.
@@ -210,6 +211,7 @@ KindleUI started from SimpleUI. The main additions:
 | `features/library/kui_author_names.lua` | Author last-name sort keys and "First Last" display. |
 | `features/library/kui_collections_view.lua` | Collections as a Library browse view. |
 | `features/library/kui_collection_shuffle.lua` | The Shuffle sort method for collections. |
+| `features/library/kui_last_opened.lua` | The "last opened" sort method. |
 | `screens/kui_navbar_dropdown.lua` | The group menu on the navigation bar. |
 | `modules/module_two_col.lua` | Two Columns. |
 | `modules/module_meta_row.lua` | Author / Series Collection. |
