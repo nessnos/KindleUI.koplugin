@@ -400,22 +400,68 @@ local function moduleHeight(ctx)
     return n * rowHeight(pfx) + S(40)
 end
 
--- A white check mark drawn on the filled box: a short stroke down to the
--- bottom-left third, then a long one up to the top-right corner.
-local function stroke(bb, x0, y0, x1, y1, t, c)
-    local n = math.max(1, math.ceil(math.max(math.abs(x1 - x0), math.abs(y1 - y0))))
-    for i = 0, n do
-        local px = x0 + (x1 - x0) * i / n
-        local py = y0 + (y1 - y0) * i / n
-        bb:paintRect(math.floor(px - t / 2), math.floor(py - t / 2), t, t, c)
+-- A white check mark drawn on the filled box: a short stroke down, then a
+-- long one up to the right. Sharp, not rounded: flat ends and a pointed
+-- corner (each stroke runs half a thickness past the joint). Filled
+-- pixel by pixel, so the edges stay crisp.
+local function inStroke(px, py, x0, y0, x1, y1, t, ext0, ext1)
+    local dx, dy = x1 - x0, y1 - y0
+    local len = math.sqrt(dx * dx + dy * dy)
+    if len == 0 then return false end
+    local ux, uy = dx / len, dy / len
+    local rx, ry = px - x0, py - y0
+    local along = rx * ux + ry * uy
+    local across = math.abs(-rx * uy + ry * ux)
+    return across <= t / 2 and along >= -ext0 and along <= len + ext1
+end
+
+-- Preferred: the check mark from icons/kui_check.svg, rendered smooth
+-- (anti-aliased) at the box size. The pixel version below is the fallback.
+local _tick_icons = {}
+local function drawTickSVG(bb, bx, by, box)
+    local w = _tick_icons[box]
+    if w == nil then
+        w = false
+        pcall(function()
+            local path = require("infra/sui_paths").getPluginDir() .. "icons/kui_check.svg"
+            if lfs.attributes(path, "mode") ~= "file" then return end
+            local ImageWidget = require("ui/widget/imagewidget")
+            local img = ImageWidget:new{ file = path, width = box, height = box, alpha = true,
+                is_icon = true }
+            img:_render()
+            w = img
+        end)
+        _tick_icons[box] = w
+    end
+    if not w then return false end
+    return pcall(w.paintTo, w, bb, bx, by)
+end
+
+local function drawTickPixels(bb, bx, by, box)
+    local t = math.max(2, box * 0.10)
+    local ax, ay = box * 0.29, box * 0.53
+    local jx, jy = box * 0.44, box * 0.67
+    local cx, cy = box * 0.73, box * 0.35
+    local x0, x1 = math.floor(box * 0.20), math.ceil(box * 0.82)
+    local y0, y1 = math.floor(box * 0.25), math.ceil(box * 0.80)
+    for py = y0, y1 do
+        local run_start
+        for px = x0, x1 + 1 do
+            local cxp, cyp = px + 0.5, py + 0.5
+            local on = px <= x1 and (inStroke(cxp, cyp, ax, ay, jx, jy, t, 0, t / 2)
+                or inStroke(cxp, cyp, jx, jy, cx, cy, t, t / 2, 0))
+            if on and not run_start then
+                run_start = px
+            elseif not on and run_start then
+                bb:paintRect(bx + run_start, by + py, px - run_start, 1, Blitbuffer.COLOR_WHITE)
+                run_start = nil
+            end
+        end
     end
 end
+
 local function drawTick(bb, bx, by, box)
-    -- white on the filled black box
-    local t = math.max(2, math.floor(box * 0.10))
-    local c = Blitbuffer.COLOR_WHITE
-    stroke(bb, bx + box * 0.24, by + box * 0.52, bx + box * 0.42, by + box * 0.70, t, c)
-    stroke(bb, bx + box * 0.42, by + box * 0.70, bx + box * 0.78, by + box * 0.30, t, c)
+    if not drawTickSVG(bb, bx, by, box) then drawTickPixels(bb, bx, by, box) end
 end
 
 local ListWidget = Widget:extend{ width = 0, height = 0 }
