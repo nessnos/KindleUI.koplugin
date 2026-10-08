@@ -114,6 +114,8 @@ Add modules from **Settings → Home Screen → Edit Home Screen Layout → Add 
   - Rows of covers always show one row of two books in a column. Swipe them, or use the ‹ 1/3 › arrows next to their title, to see the rest.
   - The Clock can't go in a column; use its Column Width setting instead.
 - **Reading Calendar.** This month as a calendar filling a page, like KOReader's statistics Calendar view: the books you read each day as grey bars with their titles (one bar across consecutive days), the time read per day, and today highlighted. Use ‹ › next to the title to go back through earlier months (› is greyed out on the current month); it opens on the current month every time you go Home. Tap the calendar to open KOReader's full Calendar view. Settings: *Height* (100% fills the page, so give it a page of its own), *Week starts on* (Monday or Sunday), *Show reading time per day*, section label. It needs the Reading statistics plugin.
+- **Year in Books.** The books you finished each month of the year as a bar chart of covers: one column per month, the latest book's cover on top and the others as slices under it, so a busy month stands taller. The count is above each column, the current month is in bold with a dot under it, and the title shows how many books you finished this year. Tap a month for the list of books finished then (tap one to open it); ‹ › go to earlier years. A book counts once it's marked *Finished*. Settings: *Cover size*, *Show covers*, section label.
+- **Monthly TBR.** A to-read checklist for each month. Each book has a checkbox that ticks itself once the book is marked *Finished*; you can also tick a book by hand (for books read elsewhere). Tap a book to open it, long-press it to remove it, move it to next month or edit the list. *+ Add books* opens your library as a checklist to choose this month's books; ‹ › go to other months (up to 3 ahead, to plan). You can also long-press a book in the Library → *Add to October TBR*. Settings: *Edit this month's / next month's TBR*, *Carry over unread books from last month*, *Books shown*, *Show covers*, section label.
 - **And more:** Recent, To Be Read, New Books, Cover Deck, Collections, Quote of the Day, Clock, Reading Goals, Reading Stats, Reading Heatmap, Quick Actions, Action List and Spacer.
 
 Progress bars in modules are thin and black. Collection titles show their book count on a smaller second line.
@@ -219,6 +221,8 @@ KindleUI started from SimpleUI. The main additions:
 | `modules/module_two_col.lua` | Two Columns. |
 | `modules/module_meta_row.lua` | Author / Series Collection. |
 | `modules/module_calendar.lua` | Reading Calendar. |
+| `modules/module_year_books.lua` | Year in Books. |
+| `modules/module_month_tbr.lua` | Monthly TBR. |
 | `engines/kui_kobo_tiles.lua` | Shared shuffle logic (and the older Kobo-style shelves). |
 | `infra/kui_chevron.lua`, `infra/kui_battery.lua` | The chevron and the horizontal battery. |
 

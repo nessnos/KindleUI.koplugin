@@ -1066,6 +1066,22 @@ function SimpleUIPlugin:init()
                     return _makeTBRRow(file, is_file, book_props, close_refresh)
                 end)
 
+                -- KindleUI: "Add to <month> TBR" (Monthly TBR module).
+                FM.instance:addFileDialogButtons("kui_month_tbr", function(file, is_file, book_props, close_cb)
+                    if not is_file then return nil end
+                    local ok_dr, DR = pcall(require, "document/documentregistry")
+                    if not (ok_dr and DR and DR:hasProvider(file)) then return nil end
+                    local ok_mt, MT = pcall(require, "modules/module_month_tbr")
+                    if not ok_mt or not MT then return nil end
+                    local close_refresh = close_cb or function()
+                        local fc = FM.instance and FM.instance.file_chooser
+                        local dlg = fc and fc.file_dialog
+                        if dlg then UIManager:close(dlg) end
+                        if fc then fc:refreshPath() end
+                    end
+                    return { MT.genButton(file, close_refresh) }
+                end)
+
                 -- 2. Search results (FileSearcher.onMenuHold).
                 --
                 -- The problem: file_dialog_added_buttons row_funcs are called as
