@@ -297,6 +297,10 @@ local function sectionLabel(text, w, right_text, page_nav, landscape_factor, sub
         key = key .. "|" .. page_nav.mod_id .. "|" .. tostring(page_nav.page) .. "|" .. tostring(page_nav.npages)
             .. "|" .. tostring(page_nav.has_wallpaper)
     end
+    -- KindleUI: a label with a sub line is not reused from the cache — its
+    -- grey sub text is an alpha-mask widget that can't be painted again
+    -- once the previous screen freed it (it showed as a blank line).
+    if sub_text and sub_text ~= "" then _label_cache[key] = nil end
     if not _label_cache[key] then
         local face = Font:getFace(SUIStyle.FACE_REGULAR, fs)
         local avail_w  = w - PAD * 2

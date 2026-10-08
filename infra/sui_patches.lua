@@ -3278,6 +3278,12 @@ local function _onStatusChanged(file)
         if md5 then DB.removeByMd5(md5) end
     end)
 
+    -- KindleUI: the Year in Books chart counts finished books.
+    pcall(function()
+        local YB = package.loaded["modules/module_year_books"]
+        if YB and YB.invalidateCache then YB.invalidateCache() end
+    end)
+
     -- 0b. If the book just became "complete", drop it from the To Be Read
     --     list — TBR is meant to hold unstarted books, so a finished book
     --     no longer belongs there. Opt-out toggle in the TBR module's menu,
