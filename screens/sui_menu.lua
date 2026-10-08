@@ -2943,6 +2943,16 @@ SimpleUIPlugin.addToMainMenu = function(self, menu_items)
                             _refreshFC()
                         end,
                     },
+                    {
+                        text = _("Show volume numbers on spines"),
+                        keep_menu_open = true,
+                        checked_func = function() return require("features/library/kui_series_shelf").showNumbers() end,
+                        callback = function()
+                            local SH = require("features/library/kui_series_shelf")
+                            SH.setShowNumbers(not SH.showNumbers())
+                            _refreshFC()
+                        end,
+                    },
                 },
             },
             -- ── Enable Browse by Author / Series / Tags ───────────────────────
