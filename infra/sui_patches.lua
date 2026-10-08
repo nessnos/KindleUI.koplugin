@@ -3282,6 +3282,8 @@ local function _onStatusChanged(file)
     pcall(function()
         local YB = package.loaded["modules/module_year_books"]
         if YB and YB.invalidateCache then YB.invalidateCache() end
+        local SF = package.loaded["features/library/kui_status_filter"]
+        if SF and SF.invalidate then SF.invalidate() end
     end)
 
     -- 0b. If the book just became "complete", drop it from the To Be Read

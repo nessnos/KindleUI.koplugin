@@ -527,6 +527,9 @@ local function availableArea(fc)
         local ok, sz = pcall(function() return fc.page_info:getSize() end)
         if ok and sz then h = h - sz.h end
     end
+    -- Unread / Read chips at the top
+    local SF = package.loaded["features/library/kui_status_filter"]
+    if SF and SF.reservedHeight then h = h - SF.reservedHeight(fc) end
     -- With vertical scrolling on, the shelf is the one view that scrolls
     -- sideways: its scrollbar lies along the bottom, so keep that strip free
     -- (no gutter on the right).
@@ -577,6 +580,8 @@ local function shelfUpdateItems(fc, select_number, no_recalculate_dimen)
         row_h = d.row_h, margin = d.margin, fc = fc, show_parent = fc.show_parent,
     }
     fc.item_group[1] = page
+    local SF = package.loaded["features/library/kui_status_filter"]
+    if SF and SF.decorate then SF.decorate(fc) end
     fc:updatePageInfo(1)
     if fc.show_parent then fc.show_parent.dithered = true end
     UIManager:setDirty(fc.show_parent, function()
