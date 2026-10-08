@@ -109,7 +109,7 @@ end
 -- ---------------------------------------------------------------------------
 -- The chip row
 -- ---------------------------------------------------------------------------
-function M.rowHeight() return S(46) end
+function M.rowHeight() return S(60) end
 
 local ChipRow = InputContainer:extend{ width = 0, height = 0, fc = nil }
 
@@ -127,7 +127,7 @@ function ChipRow:paintTo(bb, x, y)
     local c = counts(self.fc)
     local cur = M.current()
     local face = Font:getFace("cfont", 15)
-    local chip_h = S(32)
+    local chip_h = S(42)
     local pad_x = S(14)
     local gap = S(10)
     local cx = x + S(12)
@@ -183,8 +183,9 @@ end
 -- ---------------------------------------------------------------------------
 -- Hooks
 -- ---------------------------------------------------------------------------
+-- Not on the Series bookshelf: it shows the whole bookcase, unfiltered.
 local function wanted(fc)
-    return fc and fc.name == "filemanager" and M.isEnabled()
+    return fc and fc.name == "filemanager" and M.isEnabled() and not fc._kui_shelf_on
 end
 
 function M.reservedHeight(fc)

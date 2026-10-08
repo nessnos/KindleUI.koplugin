@@ -613,7 +613,13 @@ function M.attach(fc, path)
         end
     end
     if not on then return detach(fc) end
+    -- The bookshelf always shows the whole bookcase: the Library's
+    -- Unread / Read filter (KOReader's status filter) is left out here.
+    local FileChooser = require("ui/widget/filechooser")
+    local saved_status = FileChooser.show_filter and FileChooser.show_filter.status
+    if saved_status then FileChooser.show_filter.status = nil end
     local ok, groups = pcall(buildGroups, fc, path)
+    if saved_status then FileChooser.show_filter.status = saved_status end
     if not ok then
         logger.warn("kindleui: series shelf failed:", groups)
         return detach(fc)
