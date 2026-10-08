@@ -400,6 +400,24 @@ local function moduleHeight(ctx)
     return n * rowHeight(pfx) + S(40)
 end
 
+-- A white check mark drawn on the filled box: a short stroke down to the
+-- bottom-left third, then a long one up to the top-right corner.
+local function stroke(bb, x0, y0, x1, y1, t, c)
+    local n = math.max(1, math.ceil(math.max(math.abs(x1 - x0), math.abs(y1 - y0))))
+    for i = 0, n do
+        local px = x0 + (x1 - x0) * i / n
+        local py = y0 + (y1 - y0) * i / n
+        bb:paintRect(math.floor(px - t / 2), math.floor(py - t / 2), t, t, c)
+    end
+end
+local function drawTick(bb, bx, by, box)
+    -- white on the filled black box
+    local t = math.max(2, math.floor(box * 0.10))
+    local c = Blitbuffer.COLOR_WHITE
+    stroke(bb, bx + box * 0.24, by + box * 0.52, bx + box * 0.42, by + box * 0.70, t, c)
+    stroke(bb, bx + box * 0.42, by + box * 0.70, bx + box * 0.78, by + box * 0.30, t, c)
+end
+
 local ListWidget = Widget:extend{ width = 0, height = 0 }
 
 function ListWidget:getSize() return Geom:new{ w = self.width, h = self.height } end
@@ -415,7 +433,6 @@ function ListWidget:init()
 
     local title_face = Font:getFace(SUIStyle.FACE_BOLD, SUIStyle.FS_DETAIL)
     local sub_face   = Font:getFace(SUIStyle.FACE_REGULAR, SUIStyle.FS_CAPTION)
-    local tick_face  = Font:getFace("cfont", SUIStyle.FS_DETAIL)
 
     self.box = S(24)
     self.thumb_w = self.covers and math.floor((self.row_h - S(10)) / 1.5) or 0
@@ -449,7 +466,6 @@ function ListWidget:init()
             right = right_tw,
         }
     end
-    self.tick = TextWidget:new{ text = "\u{2713}", face = tick_face, bold = true, fgcolor = Blitbuffer.COLOR_WHITE }
     local add_text = #list == 0 and string.format(_("+  Plan your %s TBR"), M.monthName(self.key)) or _("+  Add books")
     if self.more > 0 then add_text = string.format(_("%d more  ·  "), self.more) .. add_text end
     self.add = TextWidget:new{ text = add_text, face = sub_face, fgcolor = Blitbuffer.COLOR_BLACK }
@@ -464,13 +480,10 @@ function ListWidget:paintTo(bb, x, y)
         -- checkbox
         local bx, by = x + S(2), ry + math.floor((row_h - box) / 2)
         if r.checked then
-            bb:paintRoundedRect(bx, by, box, box, Blitbuffer.COLOR_BLACK, S(4))
-            local ts = self.tick:getSize()
-            self.tick:paintTo(bb, bx + math.floor((box - ts.w) / 2), by + math.floor((box - ts.h) / 2))
+            bb:paintRect(bx, by, box, box, Blitbuffer.COLOR_BLACK)
+            drawTick(bb, bx, by, box)
         else
-            bb:paintRoundedRect(bx, by, box, box, Blitbuffer.COLOR_BLACK, S(4))
-            local b = math.max(2, S(2))
-            bb:paintRoundedRect(bx + b, by + b, box - 2 * b, box - 2 * b, Blitbuffer.COLOR_WHITE, S(3))
+            bb:paintBorder(bx, by, box, box, math.max(2, S(2)), Blitbuffer.COLOR_BLACK)
         end
         self.hits[#self.hits + 1] = { x = x, y = ry, w = box + S(12), h = row_h, row = r, kind = "box" }
         -- cover
@@ -526,7 +539,6 @@ function ListWidget:free()
         if r.author then r.author:free() end
         if r.right then r.right:free() end
     end
-    if self.tick then self.tick:free() end
     if self.add then self.add:free() end
 end
 
