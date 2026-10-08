@@ -154,6 +154,7 @@ With text labels on, the group's name gets a small up chevron. The group's tab s
 - **Vertical scrolling library** (Settings → Library). Swipe up or down to turn pages.
   - A KindleOS-style scrollbar sits on the right: a triangle at each end (grey when you can't go further), a thin track, and a black bar for where you are.
   - The Series bookshelf is the one exception: it scrolls sideways, like walking along a bookcase. Swipe left or right, and the same scrollbar lies along the bottom (above the Current Book cover) with ‹ › arrows.
+- **Unread / Read filter** (Settings → Library → *Unread / Read Filter*, on by default). A row of chips at the top of the Library, like on a Kindle: *Unread (n)* and *Read (n)*. Tap one to show only those books in every view (folders, All books, Authors, Series, Collections, Tags); tap it again to show everything. *Read* means marked Finished; *Unread* is everything else. It uses KOReader's own book-status filter, so the choice is remembered.
 - **Browse button** (top right of the Library): *All books*, *Authors*, *Series*, *Collections* or *Tags*.
   - The Library **remembers your choice**. Open a book, go Home, come back with the Library tab: you're back in the same view.
   - Back from the top of Authors/Series/Collections/Tags, or *All books*, goes back to showing all books.
@@ -218,6 +219,7 @@ KindleUI started from SimpleUI. The main additions:
 | `features/library/kui_collection_shuffle.lua` | The Shuffle sort method for collections. |
 | `features/library/kui_last_opened.lua` | The "last opened" sort method. |
 | `features/library/kui_series_shelf.lua` | The Series view as a bookshelf. |
+| `features/library/kui_status_filter.lua` | Unread / Read filter chips in the Library. |
 | `screens/kui_navbar_dropdown.lua` | The group menu on the navigation bar. |
 | `modules/module_two_col.lua` | Two Columns. |
 | `modules/module_meta_row.lua` | Author / Series Collection. |

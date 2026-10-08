@@ -38,6 +38,12 @@ do
     if not ok_vs then logger.err("kindleui: vertical scroll install failed:", tostring(err_vs)) end
 end
 
+-- Library: Unread / Read filter chips at the top of the list.
+do
+    local ok_sf, err_sf = pcall(function() require("features/library/kui_status_filter").install() end)
+    if not ok_sf then logger.err("kindleui: status filter install failed:", tostring(err_sf)) end
+end
+
 -- Library: "last opened" sort method.
 do
     local ok_lo, err_lo = pcall(function() require("features/library/kui_last_opened").install() end)

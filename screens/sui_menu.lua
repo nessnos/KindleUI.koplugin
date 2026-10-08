@@ -2991,6 +2991,25 @@ SimpleUIPlugin.addToMainMenu = function(self, menu_items)
                     end
                 end,
             },
+            -- ── KindleUI: Unread / Read chips ─────────────────────────────────
+            {
+                text           = _("Unread / Read Filter"),
+                help_text      = _("A row with Unread and Read at the top of the Library, like on a Kindle. Tap one to show only those books, tap it again to show all."),
+                checked_func   = function() return require("features/library/kui_status_filter").isEnabled() end,
+                keep_menu_open = true,
+                callback       = function()
+                    local SF = require("features/library/kui_status_filter")
+                    local on = not SF.isEnabled()
+                    SUISettings:saveSetting("kindleui_status_chips", on)
+                    if not on then SF.set(nil) end
+                    local FM = package.loaded["apps/filemanager/filemanager"]
+                    if FM and FM.instance then
+                        UIManager:nextTick(function()
+                            if FM.instance then FM.instance:reinit() end
+                        end)
+                    end
+                end,
+            },
             -- ── Group by Book Series ──────────────────────────────────────────
             {
                 text           = _("Group Series in All Books"),
