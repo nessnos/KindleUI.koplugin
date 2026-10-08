@@ -319,7 +319,14 @@ function YearWidget:paintTo(bb, x, y)
                     if cbb then
                         -- a slice shows the middle band of its cover
                         local src_y = i == 1 and 0 or math.max(0, math.floor((ch - bh) / 2))
-                        bb:blitFrom(cbb, sx, by, 0, src_y, cw, bh)
+                        -- night mode inverts the whole screen: pre-invert the
+                        -- cover so it shows in its real colours (like
+                        -- KOReader's own cover images)
+                        if Screen.night_mode then
+                            bb:invertblitFrom(cbb, sx, by, 0, src_y, cw, bh)
+                        else
+                            bb:blitFrom(cbb, sx, by, 0, src_y, cw, bh)
+                        end
                     else
                         local shades = { Blitbuffer.COLOR_GRAY_5, Blitbuffer.COLOR_GRAY_9, Blitbuffer.COLOR_GRAY_7 }
                         bb:paintRect(sx, by, cw, bh, shades[(i - 1) % 3 + 1])

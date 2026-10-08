@@ -540,7 +540,12 @@ function ListWidget:paintTo(bb, x, y)
             local cy = ry + S(5)
             local cbb = coverBB(r.item.fp, self.thumb_w, th)
             if cbb then
-                bb:blitFrom(cbb, cx, cy, 0, 0, self.thumb_w, th)
+                -- night mode: pre-invert so the cover keeps its colours
+                if Screen.night_mode then
+                    bb:invertblitFrom(cbb, cx, cy, 0, 0, self.thumb_w, th)
+                else
+                    bb:blitFrom(cbb, cx, cy, 0, 0, self.thumb_w, th)
+                end
                 if r.checked then bb:lightenRect(cx, cy, self.thumb_w, th, 0.4) end
             else
                 bb:paintRect(cx, cy, self.thumb_w, th, Blitbuffer.COLOR_GRAY_E)
