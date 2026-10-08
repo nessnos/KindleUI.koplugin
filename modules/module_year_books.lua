@@ -358,8 +358,83 @@ function YearWidget:free()
     for _m, tw in pairs(self.counts or {}) do tw:free() end
 end
 
--- List of the books finished in a month; tap one to open it.
-local function showMonth(year, month, open_fn)
+-- Changing a book's place in the chart (sidecar summary).
+local function writeSummary(fp, fn)
+    local ok_ds, DocSettings = pcall(require, "docsettings")
+    if not ok_ds then return false end
+    local ok, ds = pcall(DocSettings.open, DocSettings, fp)
+    if not ok or not ds then return false end
+    local summary = ds:readSetting("summary") or {}
+    fn(summary)
+    ds:saveSetting("summary", summary)
+    pcall(ds.flush, ds)
+    local SH = package.loaded["modules/module_books_shared"]
+    if SH and SH.invalidateSidecarCache then pcall(SH.invalidateSidecarCache, fp) end
+    local SP = package.loaded["modules/module_stats_provider"]
+    if SP and SP.invalidate then pcall(SP.invalidate) end
+    M.invalidateCache()
+    return true
+end
+
+local function refreshHome()
+    local HS = package.loaded["screens/sui_homescreen"]
+    if HS and HS.refresh then pcall(HS.refresh, false) end
+end
+
+local showMonth
+
+-- Options for one book of the list: open it, give it another finish date
+-- (e.g. read long ago, marked Finished only now), or take it out of the
+-- chart altogether. "Remove" sets KOReader/KindleUI's "Exclude from goals"
+-- on the book, so it also stops counting toward the reading goal; it
+-- stays marked Finished.
+local function bookOptions(menu, year, month, b, open_fn)
+    local ButtonDialog = require("ui/widget/buttondialog")
+    local dialog
+    local function reopen()
+        UIManager:close(menu)
+        refreshHome()
+        if #(M.getYear(year).months[month] or {}) > 0 then showMonth(year, month, open_fn) end
+    end
+    dialog = ButtonDialog:new{
+        title = b.title,
+        title_align = "center",
+        buttons = {
+            {{ text = _("Open book"), callback = function()
+                UIManager:close(dialog)
+                UIManager:close(menu)
+                if open_fn then open_fn(b.fp) end
+            end }},
+            {{ text = _("Change finish date…"), callback = function()
+                UIManager:close(dialog)
+                local y, m, d = b.date:match("^(%d+)%-(%d+)%-(%d+)")
+                local DateTimeWidget = require("ui/widget/datetimewidget")
+                UIManager:show(DateTimeWidget:new{
+                    year = tonumber(y) or year, month = tonumber(m) or month, day = tonumber(d) or 1,
+                    ok_text = _("Set date"),
+                    title_text = _("Finished on"),
+                    callback = function(t)
+                        local date = string.format("%04d-%02d-%02d", t.year, t.month, t.day)
+                        writeSummary(b.fp, function(sm) sm.date_finished = date end)
+                        reopen()
+                    end,
+                })
+            end }},
+            {{ text = _("Remove from Year in Books"), callback = function()
+                UIManager:close(dialog)
+                writeSummary(b.fp, function(sm) sm.exclude_from_goals = true end)
+                UI.Notify.toast(_("Removed. It stays marked Finished, and no longer counts toward your reading goal."))
+                reopen()
+            end }},
+            {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
+        },
+    }
+    UIManager:show(dialog)
+end
+
+-- List of the books finished in a month. Tap (or hold) one for its
+-- options: open it, change its finish date, or remove it from the chart.
+showMonth = function(year, month, open_fn)
     local data = M.getYear(year)
     local list = data.months[month] or {}
     if #list == 0 then return end
@@ -371,10 +446,8 @@ local function showMonth(year, month, open_fn)
         items[#items + 1] = {
             text = b.title .. ((b.authors and b.authors ~= "") and ("  —  " .. b.authors:gsub("\n.*", " et al.")) or ""),
             mandatory = day and string.format("%d %s", day, MONTHS[month]:sub(1, 3)) or nil,
-            callback = function()
-                UIManager:close(menu)
-                if open_fn then open_fn(b.fp) end
-            end,
+            callback = function() bookOptions(menu, year, month, b, open_fn) end,
+            book = b,
         }
     end
     menu = Menu:new{
@@ -385,6 +458,10 @@ local function showMonth(year, month, open_fn)
         covers_fullscreen = true,
         width = Screen:getWidth(),
         height = Screen:getHeight(),
+        onMenuHold = function(self, item)
+            if item and item.book then bookOptions(self, year, month, item.book, open_fn) end
+            return true
+        end,
     }
     UIManager:show(menu)
 end
