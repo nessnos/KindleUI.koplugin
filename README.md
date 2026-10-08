@@ -162,6 +162,7 @@ With text labels on, the group's name gets a small up chevron. The group's tab s
 - **Group series in All books.** Turn it on in the browse button (*Group series in All books*) or under Settings → Library → *Group Series in All Books*. The books of a series become one stack among your other books, like on a Kindle, sorted with the sort method you chose: by title a series sorts under its series name, by date under its most recent book. A series with a single book stays a plain book.
 - **"Last opened" sort.** In the library's *Sort by* menu: books you opened most recently first, using KOReader's reading history (more reliable than KOReader's "last read date", which depends on the file's access time). Books never opened come last; with *Group series in All books* a series sorts by its most recently opened book.
 - **Authors sorted by last name** ("Hazelwood", "Le Guin", "Maas"…) but shown as "First Last". "Herbert, Frank" is shown as "Frank Herbert". Switch it off under Settings → Library → *Sort Authors by Last Name*.
+- **Series as a bookshelf.** Settings → Library → *Series View Style* → **Bookshelf**: in the Series view, books stand on wooden shelves as spines (title up the spine, volume number at the bottom, thicker for longer books), the first book of each series faces out with its cover, and the series name sits on a label under its books. Tap a book to open it, long-press it for the book menu, tap a label to see that series. Options: *Shelves per page* (2–6) and *First book of each series shows its cover*.
 - **Browse by author and series**, folder covers, series grouping and more (from SimpleUI).
 - Author and series views don't show the "Page x of y" line at the bottom, so it can't sit behind the Current Book cover.
 
@@ -213,6 +214,7 @@ KindleUI started from SimpleUI. The main additions:
 | `features/library/kui_collections_view.lua` | Collections as a Library browse view. |
 | `features/library/kui_collection_shuffle.lua` | The Shuffle sort method for collections. |
 | `features/library/kui_last_opened.lua` | The "last opened" sort method. |
+| `features/library/kui_series_shelf.lua` | The Series view as a bookshelf. |
 | `screens/kui_navbar_dropdown.lua` | The group menu on the navigation bar. |
 | `modules/module_two_col.lua` | Two Columns. |
 | `modules/module_meta_row.lua` | Author / Series Collection. |
@@ -226,6 +228,7 @@ SimpleUI's self-updater is disabled so it can't install SimpleUI over KindleUI.
 
 - **[SimpleUI](https://github.com/doctorhetfield-cmd)** by doctorhetfield-cmd. KindleUI is built on it: the Home screen, modules, bars, library features and settings window (MIT).
 - The quick-settings panel was inspired by the idea of **Neo QuickSettings**. KindleUI's panel is its own code.
+- The Series bookshelf look was inspired by the **[Bookshelf](https://github.com/AndyHazz/bookshelf.koplugin)** plugin by AndyHazz. KindleUI's shelf is its own code.
 - Icon font: Nerd Fonts Symbols, bundled with KOReader.
 - **KOReader** and its contributors.
 
