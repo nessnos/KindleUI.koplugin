@@ -317,6 +317,9 @@ if ok_guard and FileChooser and not FileChooser._vlibscroll_patch_installed then
 
     -- Re-applies the hidden pager after something rebuilt its buttons.
     M.sync = syncOverlayState
+    -- Width kept free on the right for the scrollbar (used by the Series
+    -- bookshelf, which lays out its own pages).
+    M.getReservedWidth = getReservedWidth
 
     -- Builds the [up-arrow / scrollbar / down-arrow] overlay and appends
     -- it to `fc`'s own widget tree (fc[1][1] is the OverlapGroup
