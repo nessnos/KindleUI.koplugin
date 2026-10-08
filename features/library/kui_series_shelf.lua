@@ -527,12 +527,17 @@ local function availableArea(fc)
         local ok, sz = pcall(function() return fc.page_info:getSize() end)
         if ok and sz then h = h - sz.h end
     end
-    local gutter = 0
-    if fc._vlibscroll_bar then
+    -- With vertical scrolling on, the shelf is the one view that scrolls
+    -- sideways: its scrollbar lies along the bottom, so keep that strip free
+    -- (no gutter on the right).
+    if fc._kui_hbar then
         local VS = package.loaded["features/kui_vertical_scroll"]
-        gutter = (VS and VS.getReservedWidth and VS.getReservedWidth(fc)) or S(28)
+        h = h - ((VS and VS.getReservedHeight and VS.getReservedHeight(fc)) or S(34))
+    elseif fc._vlibscroll_bar then
+        local VS = package.loaded["features/kui_vertical_scroll"]
+        w = w - ((VS and VS.getReservedWidth and VS.getReservedWidth(fc)) or S(28))
     end
-    return w - gutter, h
+    return w, h
 end
 
 local function shelfRecalc(fc)
