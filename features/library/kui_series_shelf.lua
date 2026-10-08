@@ -4,12 +4,12 @@
 -- Instead of one folder per series, the series are drawn as books standing
 -- on wooden shelves: each book is a spine (title written up the spine,
 -- volume number at the bottom), the first book of each series faces out
--- with its cover, and the series name sits on a label under its books.
+-- with its cover. Every book of a series has the same size.
 -- Books without a series form a last group.
 --
 --   tap a book    → open it
 --   hold a book   → the usual book menu
---   tap a label   → the series' own list (the normal Series folder)
+--   tap the plank under a series → that series' own list
 --
 -- KindleUI's own code (MIT). The look is inspired by the Bookshelf plugin
 -- for KOReader by AndyHazz (AGPL); no code from it is used.
@@ -50,6 +50,9 @@ end
 function M.setRows(n) SUISettings:saveSetting(ROWS_KEY, n) end
 function M.showCovers() return SUISettings:readSetting(COVER_KEY) ~= false end
 function M.setShowCovers(on) SUISettings:saveSetting(COVER_KEY, on and true or false) end
+local NUM_KEY = "kindleui_series_shelf_numbers"
+function M.showNumbers() return SUISettings:readSetting(NUM_KEY) ~= false end
+function M.setShowNumbers(on) SUISettings:saveSetting(NUM_KEY, on and true or false) end
 
 local function S(n) return Screen:scaleBySize(n) end
 
@@ -63,8 +66,88 @@ local function hash(s)
     return h
 end
 
--- Spine shades (grey levels) — one per series, picked from its name.
-local SHADES = { 0x33, 0x4A, 0x5E, 0x72, 0x88, 0x9C, 0xB0, 0xC6, 0xDA }
+-- Cloth tones for books without a cover; on a black-and-white screen they
+-- show as distinct greys.
+local PALETTE = {
+    { 0x2F, 0x5D, 0x62 }, -- teal
+    { 0x6B, 0x2E, 0x2E }, -- oxblood
+    { 0x3B, 0x4A, 0x6B }, -- navy
+    { 0x7A, 0x6A, 0x2F }, -- ochre
+    { 0x4F, 0x6B, 0x3A }, -- olive
+    { 0x5B, 0x3F, 0x6B }, -- plum
+    { 0x8C, 0x4A, 0x2F }, -- rust
+    { 0x2E, 0x4F, 0x3E }, -- bottle green
+    { 0x6E, 0x6E, 0x6E }, -- slate
+    { 0x9A, 0x7B, 0x5A }, -- tan
+    { 0x3A, 0x3A, 0x3A }, -- charcoal
+    { 0xA6, 0x3D, 0x4A }, -- crimson
+    { 0x4A, 0x7A, 0x8C }, -- steel blue
+    { 0xB5, 0x9A, 0x6A }, -- sand
+}
+
+-- Spine colour of a book, taken from its cover: the most common colour on
+-- the cover (coarse buckets, averaged), so a red cover gives a red spine.
+-- Books without a cover get a cloth tone from the palette. Cached per file.
+local _colour_cache = {}
+local function coverColour(bim, fp, attr)
+    local key = fp .. "|" .. tostring(attr and attr.modification)
+    local hit = _colour_cache[key]
+    if hit then return hit end
+    local col
+    local info = bim and bim:getBookInfo(fp, true)
+    local cbb = info and info.has_cover and info.cover_bb
+    if cbb then
+        pcall(function()
+            local cw, ch = cbb:getWidth(), cbb:getHeight()
+            local buckets, best = {}, nil
+            local N = 16
+            for iy = 1, N do
+                for ix = 1, N do
+                    local px = math.floor((ix - 0.5) * cw / N)
+                    local py = math.floor((iy - 0.5) * ch / N)
+                    local c = cbb:getPixel(px, py):getColorRGB32()
+                    local r, g, b = c.r, c.g, c.b
+                    local k = math.floor(r / 48) * 64 + math.floor(g / 48) * 8 + math.floor(b / 48)
+                    local bk = buckets[k]
+                    if not bk then bk = { 0, 0, 0, 0 }; buckets[k] = bk end
+                    bk[1], bk[2], bk[3], bk[4] = bk[1] + r, bk[2] + g, bk[3] + b, bk[4] + 1
+                    if not best or bk[4] > best[4] then best = bk end
+                end
+            end
+            if best then
+                col = { math.floor(best[1] / best[4]), math.floor(best[2] / best[4]), math.floor(best[3] / best[4]) }
+            end
+        end)
+    end
+    if info and info.cover_bb then info.cover_bb:free() end
+    col = col or PALETTE[hash(fp) % #PALETTE + 1]
+    _colour_cache[key] = col
+    return col
+end
+
+-- Number of pages: from the book info, then from the book's own settings
+-- (once it has been opened), else estimated from the file size.
+local function pageCount(bi, fp, attr)
+    local p = bi and tonumber(bi.pages)
+    if p and p > 0 then return p end
+    local ok, DocSettings = pcall(require, "docsettings")
+    if ok and DocSettings and DocSettings.hasSidecarFile and DocSettings:hasSidecarFile(fp) then
+        local ok2, ds = pcall(DocSettings.open, DocSettings, fp)
+        if ok2 and ds then
+            p = tonumber(ds:readSetting("doc_pages"))
+            if p and p > 0 then return p end
+            local stats = ds:readSetting("stats")
+            p = stats and tonumber(stats.pages)
+            if p and p > 0 then return p end
+        end
+    end
+    local size = attr and attr.size or 0
+    local ext = (fp:match("%.([^.]+)$") or ""):lower()
+    -- roughly 2 KB of compressed text per page in an EPUB (images aside)
+    local per_page = (ext == "epub" or ext == "fb2" or ext == "mobi" or ext == "azw3") and 2000
+        or (ext == "txt" and 1800) or 60000
+    return math.max(60, math.min(1500, math.floor(size / per_page)))
+end
 
 local function buildGroups(fc, path)
     local VP = require("features/library/sui_virtual_path")
@@ -91,7 +174,8 @@ local function buildGroups(fc, path)
                 title = (row.title and row.title ~= "") and row.title or (fname:gsub("%.[^.]+$", "")),
                 authors = row.authors,
                 index = tonumber(row.series_index),
-                pages = bi and tonumber(bi.pages),
+                pages = pageCount(bi, fp, attr),
+                color = coverColour(bim, fp, attr),
             }
         end
     end
@@ -107,7 +191,6 @@ local function buildGroups(fc, path)
             return ffiUtil.strcoll(a.title, b.title)
         end)
         g.label = g.name or VP.displayValue(false, "series")
-        g.shade = SHADES[hash(g.name or "~") % #SHADES + 1]
         g.vpath = VP.buildLeaf(base_dir, filter_state, "series", g.name)
     end
     return order
@@ -117,10 +200,18 @@ end
 -- Layout: groups → rows → pages
 -- ---------------------------------------------------------------------------
 
+-- Spine thickness from the page count: ~100 pages thin, ~350 average,
+-- 800+ a doorstop.
+local function spineWidth(pages)
+    local p = pages or 350
+    return math.max(S(18), math.min(S(50), S(14) + math.floor(p / 24)))
+end
+
 local function layout(groups, avail_w, row_h, covers)
-    local label_h = S(30)
-    local plank_h = S(9)
-    local top_gap = S(10)
+    -- no labels under the shelves: the books get the height instead
+    local label_h = S(4)
+    local plank_h = S(12)
+    local top_gap = S(6)
     local area_h  = row_h - label_h - plank_h - top_gap
     local cover_h = area_h
     local cover_w = math.floor(cover_h * 2 / 3)
@@ -136,6 +227,10 @@ local function layout(groups, avail_w, row_h, covers)
     end
     for _gi, g in ipairs(groups) do
         if row.x > 0 then row.x = row.x + group_gap end
+        -- every book of a series has the same height (one per series, from
+        -- its name); thickness follows each book's number of pages.
+        -- Books without a series keep their own heights.
+        local g_h = g.name and math.floor(area_h * (0.86 + (hash(g.name) % 15) / 100))
         local seg = nil
         for bi_i, b in ipairs(g.books) do
             local item = { book = b, group = g }
@@ -156,9 +251,8 @@ local function layout(groups, avail_w, row_h, covers)
             end
             if not item.cover then
                 -- thicker for longer books (unknown length: average)
-                local p = b.pages or 350
-                item.w = math.max(S(24), math.min(S(42), S(20) + math.floor(p / 35)))
-                item.h = math.floor(area_h * (0.82 + (hash(b.fp) % 19) / 100))
+                item.w = spineWidth(b.pages)
+                item.h = g_h or math.floor(area_h * (0.84 + (hash(b.fp) % 17) / 100))
             end
             if row.x > 0 and row.x + item.w > avail_w then
                 newRow()
@@ -184,9 +278,76 @@ end
 
 local _spine_cache, _spine_count = {}, 0
 
-local function spineBB(item, shade)
+local function lum(c) return math.floor(0.299 * c[1] + 0.587 * c[2] + 0.114 * c[3] + 0.5) end
+local function shift(c, d)
+    return { math.max(0, math.min(255, c[1] + d)), math.max(0, math.min(255, c[2] + d)), math.max(0, math.min(255, c[3] + d)) }
+end
+
+-- Colour value for the spine bitmaps: real colour on colour screens,
+-- the matching grey otherwise.
+local function colour(c, rgb)
+    if rgb then return Blitbuffer.ColorRGB32(c[1], c[2], c[3], 0xFF) end
+    return Blitbuffer.Color8(lum(c))
+end
+
+-- Title at the largest size (≤ max_fs) that fits `len`, so it's readable
+-- in full; truncated only when even the smallest size doesn't fit.
+-- Fit a title along the spine: one line, shrinking the font; then two
+-- lines (split at the space nearest the middle) if the spine is thick
+-- enough; only then truncate. Returns a list of TextWidgets.
+local function splitTwo(text)
+    local best, mid = nil, #text / 2
+    for i in text:gmatch("() ") do
+        if not best or math.abs(i - mid) < math.abs(best - mid) then best = i end
+    end
+    if not best then return nil end
+    return text:sub(1, best - 1), text:sub(best + 1)
+end
+
+local function fittedTitle(text, len, thick, max_fs, fg)
+    local min_fs = 6
+    for fs = max_fs, min_fs, -1 do
+        local tw = TextWidget:new{ text = text, face = Font:getFace("cfont", fs), fgcolor = fg }
+        local sz = tw:getSize()
+        if sz.w <= len and sz.h <= thick then return { tw } end
+        tw:free()
+    end
+    local a, b = splitTwo(text)
+    if a then
+        for fs = math.min(max_fs, 10), min_fs, -1 do
+            local face = Font:getFace("cfont", fs)
+            local lh, bl = math.ceil(face.size * 1.12), math.ceil(face.size * 0.88)
+            local t1 = TextWidget:new{ text = a, face = face, fgcolor = fg, forced_height = lh, forced_baseline = bl }
+            local t2 = TextWidget:new{ text = b, face = face, fgcolor = fg, forced_height = lh, forced_baseline = bl }
+            local s1, s2 = t1:getSize(), t2:getSize()
+            if s1.h + s2.h <= thick + 2 then
+                if s1.w <= len and s2.w <= len then return { t1, t2 } end
+            end
+            t1:free(); t2:free()
+        end
+        -- two lines at the smallest size, second one truncated
+        local face = Font:getFace("cfont", min_fs)
+        local lh, bl = math.ceil(face.size * 1.12), math.ceil(face.size * 0.88)
+        local t1 = TextWidget:new{ text = a, face = face, fgcolor = fg, max_width = len, truncate_with_ellipsis = true, forced_height = lh, forced_baseline = bl }
+        local t2 = TextWidget:new{ text = b, face = face, fgcolor = fg, max_width = len, truncate_with_ellipsis = true, forced_height = lh, forced_baseline = bl }
+        if t1:getSize().h + t2:getSize().h <= thick + 2 then return { t1, t2 } end
+        t1:free(); t2:free()
+    end
+    return { TextWidget:new{ text = text, face = Font:getFace("cfont", min_fs), fgcolor = fg,
+        max_width = len, truncate_with_ellipsis = true } }
+end
+
+-- paintRect that keeps colour on RGB bitmaps (plain paintRect/fill turn
+-- colours into grey).
+local function rect(bb, rgb, x, y, w, h, c)
+    if w <= 0 or h <= 0 then return end
+    if rgb then bb:paintRectRGB32(x, y, w, h, c) else bb:paintRect(x, y, w, h, c) end
+end
+
+local function spineBB(item, col)
     local b = item.book
-    local key = b.fp .. "|" .. item.w .. "|" .. item.h .. "|" .. shade
+    local rgb = Screen:isColorEnabled()
+    local key = b.fp .. "|" .. item.w .. "|" .. item.h .. "|" .. col[1] .. col[2] .. col[3] .. "|" .. tostring(rgb) .. tostring(M.showNumbers())
     local hit = _spine_cache[key]
     if hit then return hit end
     if _spine_count > 400 then
@@ -194,43 +355,61 @@ local function spineBB(item, shade)
         _spine_cache, _spine_count = {}, 0
     end
     local w, h = item.w, item.h
-    local bg = Blitbuffer.Color8(shade)
-    local fg = shade < 0x90 and Blitbuffer.COLOR_WHITE or Blitbuffer.COLOR_BLACK
-    local bb = Blitbuffer.new(w, h, Blitbuffer.TYPE_BB8)
-    bb:fill(bg)
-    -- page-edge band at the top
-    bb:paintRect(1, 1, w - 2, S(4), Blitbuffer.COLOR_GRAY_E)
-    -- volume number box at the bottom
+    local bg = colour(col, rgb)
+    local dark = lum(col) < 0x90
+    local fg = dark and Blitbuffer.COLOR_WHITE or Blitbuffer.COLOR_BLACK
+    local bb = Blitbuffer.new(w, h, rgb and Blitbuffer.TYPE_BBRGB32 or Blitbuffer.TYPE_BB8)
+    rect(bb, rgb, 0, 0, w, h, colour({ 0xFF, 0xFF, 0xFF }, rgb))
+
+    local top = 0 -- no page tops: the spine runs the full height
+
+    -- the spine (cover cloth) below the pages
+    rect(bb, rgb, 0, top, w, h - top, bg)
+    -- a lighter band near the top and bottom, like a printed spine
+    local band = colour(shift(col, dark and 0x26 or -0x26), rgb)
+    rect(bb, rgb, 0, top + S(6), w, math.max(1, S(1)), band)
+
+    -- volume number at the bottom: small, so the title gets the room
     local foot = 0
-    if b.index and item.group.name then
+    if b.index and item.group.name and M.showNumbers() then
         local num = b.index == math.floor(b.index) and tostring(math.floor(b.index)) or tostring(b.index)
-        local face = Font:getFace("cfont", math.max(7, math.min(12, math.floor(w * 0.3))))
+        local face = Font:getFace("cfont", math.max(6, math.min(8, math.floor(w * 0.22))))
         local tw = TextWidget:new{ text = num, face = face, fgcolor = fg, max_width = w - 2 }
         local sz = tw:getSize()
-        foot = sz.h + S(4)
-        bb:paintRect(1, h - foot, w - 2, foot - 1, shade < 0x90 and Blitbuffer.Color8(math.max(0, shade - 0x22)) or Blitbuffer.Color8(math.min(0xFF, shade + 0x18)))
-        tw:paintTo(bb, math.floor((w - sz.w) / 2), h - foot + S(2))
+        foot = sz.h + S(1)
+        rect(bb, rgb, 1, h - foot - 1, w - 2, 1, band)
+        tw:paintTo(bb, math.floor((w - sz.w) / 2), h - foot)
         tw:free()
     end
+
     -- title, rendered horizontally then turned to read bottom-to-top
-    local len = h - S(8) - foot - S(6)
-    if len > S(20) then
-        local fs = math.max(8, math.min(16, math.floor(w * 0.5)))
-        local face = Font:getFace("cfont", fs)
-        local tw = TextWidget:new{ text = b.title, face = face, fgcolor = fg,
-            max_width = len, truncate_with_ellipsis = true }
-        local sz = tw:getSize()
-        local tb = Blitbuffer.new(len, w - 2, Blitbuffer.TYPE_BB8)
-        tb:fill(bg)
-        tw:paintTo(tb, 0, math.floor((w - 2 - sz.h) / 2))
-        tw:free()
+    local len = h - top - S(10) - foot - S(2)
+    if len > S(16) then
+        local thick = w - S(4)
+        local lines = fittedTitle(b.title, len, thick, math.max(7, math.min(15, math.floor(w * 0.48))), fg)
+        local total = 0
+        for _i, tw in ipairs(lines) do total = total + tw:getSize().h end
+        local tb = Blitbuffer.new(len, w - 2, rgb and Blitbuffer.TYPE_BBRGB32 or Blitbuffer.TYPE_BB8)
+        rect(tb, rgb, 0, 0, len, w - 2, bg)
+        -- centred along and across the spine
+        local y = math.floor((w - 2 - total) / 2)
+        for _i, tw in ipairs(lines) do
+            local sz = tw:getSize()
+            tw:paintTo(tb, math.floor((len - sz.w) / 2), y)
+            y = y + sz.h
+            tw:free()
+        end
         local rot = tb:rotatedCopy(90)
         tb:free()
-        bb:blitFrom(rot, 1, S(8) + (len - rot:getHeight()), 0, 0, rot:getWidth(), rot:getHeight())
+        bb:blitFrom(rot, 1, top + S(8), 0, 0, rot:getWidth(), rot:getHeight())
         rot:free()
     end
-    -- outline
-    bb:paintBorder(0, 0, w, h, 1, Blitbuffer.COLOR_BLACK)
+    -- outline of the boards
+    local ink = colour({ 0, 0, 0 }, rgb)
+    rect(bb, rgb, 0, top, w, 1, ink)
+    rect(bb, rgb, 0, h - 1, w, 1, ink)
+    rect(bb, rgb, 0, 0, 1, h, ink)
+    rect(bb, rgb, w - 1, 0, 1, h, ink)
     _spine_cache[key] = bb
     _spine_count = _spine_count + 1
     return bb
@@ -275,33 +454,24 @@ function ShelfPage:paintTo(bb, x, y)
                 img:free()
                 bb:paintBorder(bx, by, it.w, it.h, 1, Blitbuffer.COLOR_BLACK)
             else
-                local sb = spineBB(it, it.group.shade)
+                local sb = spineBB(it, it.book.color)
                 bb:blitFrom(sb, bx, by, 0, 0, it.w, it.h)
             end
             self.hits[#self.hits + 1] = { x = bx, y = by, w = it.w, h = it.h, book = it.book }
         end
         -- plank
         local pw = self.width - 2 * self.margin + S(8)
-        bb:paintRect(ox - S(4), base_y, pw, geo.plank_h, Blitbuffer.COLOR_GRAY_9)
-        bb:paintRect(ox - S(4), base_y, pw, math.max(1, S(2)), Blitbuffer.COLOR_GRAY_5)
-        bb:paintRect(ox - S(4), base_y + geo.plank_h - math.max(1, S(2)), pw, math.max(1, S(2)), Blitbuffer.COLOR_GRAY_5)
-        -- series labels
+        -- wooden plank (wood colour on colour screens)
+        local wrgb = bb:getType() == Blitbuffer.TYPE_BBRGB32 and Screen:isColorEnabled()
+        local wood, edge = colour({ 0xA0, 0x70, 0x45 }, wrgb), colour({ 0x6B, 0x45, 0x25 }, wrgb)
+        rect(bb, wrgb, ox - S(4), base_y, pw, geo.plank_h, wood)
+        rect(bb, wrgb, ox - S(4), base_y, pw, math.max(1, S(2)), edge)
+        rect(bb, wrgb, ox - S(4), base_y + geo.plank_h - math.max(1, S(2)), pw, math.max(1, S(2)), edge)
+        -- tapping the plank under a series opens the series
         for _i, seg in ipairs(row.segs) do
-            local seg_w = seg.x1 - seg.x0
-            local lw = math.max(S(36), seg_w)
-            local tw = TextWidget:new{ text = seg.group.label, face = self.label_face,
-                fgcolor = Blitbuffer.COLOR_WHITE, max_width = lw - S(10), truncate_with_ellipsis = true }
-            local sz = tw:getSize()
-            local box_w = sz.w + S(10)
-            local box_h = sz.h + S(2)
-            local lx = ox + seg.x0 + math.floor((seg_w - box_w) / 2)
-            lx = math.max(x + S(2), math.min(lx, x + self.width - box_w - S(2)))
-            local ly = base_y + geo.plank_h + S(3)
-            bb:paintRoundedRect(lx, ly, box_w, box_h, Blitbuffer.COLOR_BLACK, S(3))
-            tw:paintTo(bb, lx + S(5), ly + S(1))
-            tw:free()
             if seg.group.name then
-                self.hits[#self.hits + 1] = { x = lx, y = ly, w = box_w, h = box_h, group = seg.group }
+                self.hits[#self.hits + 1] = { x = ox + seg.x0, y = base_y, w = seg.x1 - seg.x0,
+                    h = geo.plank_h, group = seg.group }
             end
         end
     end
@@ -310,7 +480,7 @@ end
 function ShelfPage:hitAt(pos)
     if not (pos and self.hits) then return nil end
     for _i, h in ipairs(self.hits) do
-        if pos.x >= h.x and pos.x < h.x + h.w and pos.y >= h.y - S(4) and pos.y < h.y + h.h + S(4) then
+        if pos.x >= h.x and pos.x < h.x + h.w and pos.y >= h.y - S(4) and pos.y < h.y + h.h + (h.book and 0 or S(4)) then
             return h
         end
     end
