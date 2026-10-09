@@ -44,6 +44,12 @@ do
     if not ok_sf then logger.err("kindleui: status filter install failed:", tostring(err_sf)) end
 end
 
+-- Library: back out of a folder to the page you were on.
+do
+    local ok_bp, err_bp = pcall(function() require("features/library/kui_back_position").install() end)
+    if not ok_bp then logger.err("kindleui: back position install failed:", tostring(err_bp)) end
+end
+
 -- Library: "last opened" sort method.
 do
     local ok_lo, err_lo = pcall(function() require("features/library/kui_last_opened").install() end)
