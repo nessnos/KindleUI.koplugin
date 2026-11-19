@@ -1776,8 +1776,8 @@ function ScreenWidget:_buildCtx()
                 scale         = Config.getModuleScale("coverdeck", self._pfx),
                 thumb_scale   = Config.getThumbScale("coverdeck", self._pfx),
                 lbl_scale     = Config.getItemLabelScale("coverdeck", self._pfx),
-                source        = SUISettings:readSetting(self._pfx .. "coverdeck_source") or "recent",
-                show_finished = SUISettings:readSetting(self._pfx .. "coverdeck_show_finished") == true,
+                source        = SUISettings:readSetting(self._pfx .. "coverdeck_source"),
+                show_finished = SUISettings:readSetting(self._pfx .. "coverdeck_show_finished") ~= false,
                 main_order    = SUISettings:readSetting(self._pfx .. "coverdeck_main_order"),
                 show = {
                     title    = SUISettings:nilOrTrue(self._pfx .. "coverdeck_show_title"),

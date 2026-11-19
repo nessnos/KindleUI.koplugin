@@ -153,9 +153,8 @@ With text labels on, the group's name gets a small up chevron. The group's tab s
 
 - **Vertical scrolling library** (Settings → Library). Swipe up or down to turn pages.
   - A KindleOS-style scrollbar sits on the right: a triangle at each end (grey when you can't go further), a thin track, and a black bar for where you are.
-  - The Series bookshelf is the one exception: it scrolls sideways, like walking along a bookcase. Swipe left or right, and the same scrollbar lies along the bottom (above the Current Book cover) with ‹ › arrows.
-- **Unread / Read filter** (Settings → Library → *Unread / Read Filter*, on by default). A row of chips at the top of the Library, like on a Kindle: *Unread (n)* and *Read (n)*. Tap one to show only those books in every view (folders, All books, Authors, Series, Collections, Tags); tap it again to show everything. The Series bookshelf has no chips and always shows the whole bookcase. *Read* means marked Finished; *Unread* is everything else. It uses KOReader's own book-status filter, so the choice is remembered.
-- **Back to where you were.** Going back out of a folder — a real folder, an author, a series (folder or bookshelf), a collection, a tag, or a series stack in *All books* — returns to the page you were on, not to the top of the list.
+- **Unread / Read filter** (Settings → Library → *Unread / Read Filter*, on by default). A row of chips at the top of the Library, like on a Kindle: *Unread (n)* and *Read (n)*. Tap one to show only those books in every view (folders, All books, Authors, Series, Collections, Tags); tap it again to show everything. *Read* means marked Finished; *Unread* is everything else. It uses KOReader's own book-status filter, so the choice is remembered.
+- **Back to where you were.** Going back out of a folder — a real folder, an author, a series, a collection, a tag, or a series stack in *All books* — returns to the page you were on, not to the top of the list.
 - **Browse button** (top right of the Library): *All books*, *Authors*, *Series*, *Collections* or *Tags*.
   - The Library **remembers your choice**. Open a book, go Home, come back with the Library tab: you're back in the same view.
   - Back from the top of Authors/Series/Collections/Tags, or *All books*, goes back to showing all books.
@@ -167,7 +166,6 @@ With text labels on, the group's name gets a small up chevron. The group's tab s
 - **Group series in All books.** Turn it on in the browse button (*Group series in All books*) or under Settings → Library → *Group Series in All Books*. The books of a series become one stack among your other books, like on a Kindle, sorted with the sort method you chose: by title a series sorts under its series name, by date under its most recent book. A series with a single book stays a plain book.
 - **"Last opened" sort.** In the library's *Sort by* menu: books you opened most recently first, using KOReader's reading history (more reliable than KOReader's "last read date", which depends on the file's access time). Books never opened come last; with *Group series in All books* a series sorts by its most recently opened book.
 - **Authors sorted by last name** ("Hazelwood", "Le Guin", "Maas"…) but shown as "First Last". "Herbert, Frank" is shown as "Frank Herbert". Switch it off under Settings → Library → *Sort Authors by Last Name*.
-- **Series as a bookshelf.** Settings → Library → *Series View Style* → **Bookshelf**: in the Series view, books stand on wooden shelves as spines. Each spine takes its colour from the book's cover (greys on a black-and-white screen) and has the full title running up it (smaller, or on two lines, when needed) with a small volume number at the bottom. Books in a series share one height; thickness follows the number of pages. The first book of each series faces out with its cover. Tap a book to open it, long-press it for the book menu, tap the shelf under a series to see that series. With vertical scrolling on, the shelves scroll sideways (swipe left/right; scrollbar along the bottom). Options: *Shelves per page* (2–6), *First book of each series shows its cover* and *Show volume numbers on spines*.
 - **Browse by author and series**, folder covers, series grouping and more (from SimpleUI).
 - Author and series views don't show the "Page x of y" line at the bottom, so it can't sit behind the Current Book cover.
 
@@ -219,7 +217,6 @@ KindleUI started from SimpleUI. The main additions:
 | `features/library/kui_collections_view.lua` | Collections as a Library browse view. |
 | `features/library/kui_collection_shuffle.lua` | The Shuffle sort method for collections. |
 | `features/library/kui_last_opened.lua` | The "last opened" sort method. |
-| `features/library/kui_series_shelf.lua` | The Series view as a bookshelf. |
 | `features/library/kui_status_filter.lua` | Unread / Read filter chips in the Library. |
 | `features/library/kui_back_position.lua` | Back out of a folder to the page you were on. |
 | `screens/kui_navbar_dropdown.lua` | The group menu on the navigation bar. |
@@ -237,7 +234,6 @@ SimpleUI's self-updater is disabled so it can't install SimpleUI over KindleUI.
 
 - **[SimpleUI](https://github.com/doctorhetfield-cmd)** by doctorhetfield-cmd. KindleUI is built on it: the Home screen, modules, bars, library features and settings window (MIT).
 - The quick-settings panel was inspired by the idea of **Neo QuickSettings**. KindleUI's panel is its own code.
-- The Series bookshelf look was inspired by the **[Bookshelf](https://github.com/AndyHazz/bookshelf.koplugin)** plugin by AndyHazz. KindleUI's shelf is its own code.
 - Icon font: Nerd Fonts Symbols, bundled with KOReader.
 - **KOReader** and its contributors.
 

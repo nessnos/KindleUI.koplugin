@@ -42,7 +42,9 @@ local HW = {}
 -- ---------------------------------------------------------------------------
 -- Shading
 -- ---------------------------------------------------------------------------
-local _LEVEL_GRAY  = { 0.16, 0.34, 0.52, 0.70, 0.90 }  -- index 1 = level 0 (none), unused — see HW.levelColor
+-- KindleUI: soft grey for "no reading", then four clearly separated steps
+-- up to black — reads well on e-ink, same palette as the home card.
+local _LEVEL_GRAY  = { 0.12, 0.32, 0.52, 0.74, 1.0 }
 
 -- Which of the 5 shading levels (0-4) `seconds` falls into, relative to
 -- `max_seconds` (the busiest single day/hour in the data being shown).
@@ -55,29 +57,26 @@ function HW.classify(seconds, max_seconds)
     return 4
 end
 
--- Level 0 (no reading at all) is always pure white, regardless of the
--- gray scale used for levels 1-4 — an empty cell should read as blank,
--- not as a shade of activity.
+-- Level 0 (no reading) is a very light grey square, so the shape of the
+-- calendar stays visible; 1-4 darken to black.
 function HW.levelColor(level)
     level = level or 0
-    if level == 0 then return SUIStyle.COLOR.surface end
+    if level >= 4 then return SUIStyle.COLOR.text_primary end
     return Blitbuffer.gray(_LEVEL_GRAY[level + 1] or _LEVEL_GRAY[1])
 end
 
--- One heatmap square: a thin border-colored square with the level color
--- filled inside, built from two overlapping solid rectangles rather than a
--- bordered FrameContainer (a bordered frame's padding rounding tends to
--- leave a 1px gap at small cell sizes).
-local function buildCell(cell_size, border, fill_color)
-    local inner = math.max(1, cell_size - 2 * border)
-    return OverlapGroup:new{
-        dimen = Geom:new{ w = cell_size, h = cell_size },
-        LineWidget:new{ dimen = Geom:new{ w = cell_size, h = cell_size }, background = SUIStyle.COLOR.gray_strong },
-        CenterContainer:new{
-            dimen = Geom:new{ w = cell_size, h = cell_size },
-            LineWidget:new{ dimen = Geom:new{ w = inner, h = inner }, background = fill_color },
-        },
-    }
+-- One heatmap square: a rounded, borderless square painted straight onto
+-- the blitbuffer (same look as the home card).
+local Widget = require("ui/widget/widget")
+local RoundCell = Widget:extend{ size = 0, color = nil }
+function RoundCell:getSize() return Geom:new{ w = self.size, h = self.size } end
+function RoundCell:paintTo(bb, x, y)
+    self.dimen = Geom:new{ x = x, y = y, w = self.size, h = self.size }
+    bb:paintRoundedRect(x, y, self.size, self.size, self.color, math.max(1, math.floor(self.size / 4)))
+end
+
+local function buildCell(cell_size, _border, fill_color)
+    return RoundCell:new{ size = cell_size, color = fill_color }
 end
 
 -- ---------------------------------------------------------------------------

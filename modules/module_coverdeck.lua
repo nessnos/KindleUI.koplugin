@@ -1,5 +1,8 @@
 -- module_coverdeck.lua
--- Displays recent or TBR books as a cover-flow carousel.
+-- Displays the books of one chosen collection (To Be Read, Favorites or any
+-- other collection) as a cover-flow carousel. KindleUI: there is no
+-- "recent books" source and no automatic fallback — the deck shows exactly
+-- the collection you picked, in that collection's own order.
 
 local Blitbuffer       = require("ffi/blitbuffer")
 local BD               = require("ui/bidi")
@@ -30,7 +33,6 @@ local CLR_TEXT_SUB = UI.CLR_TEXT_SUB
 -- Constants
 -- ---------------------------------------------------------------------------
 
-local MAX_RECENT_FPS   = 10
 local MAX_SEC_PER_PAGE = 120  -- matches KOReader statistics query cap
 local BSTATS_CACHE_MAX = 20   -- max md5 entries kept in the stats LRU cache
 
@@ -114,8 +116,8 @@ end
 -- Settings keys
 -- ---------------------------------------------------------------------------
 
-local SETTING_SOURCE        = "coverdeck_source"          -- pfx .. this; "recent"|"tbr"
-local SETTING_SHOW_FINISHED = "coverdeck_show_finished"   -- pfx .. this; default OFF
+local SETTING_SOURCE        = "coverdeck_source"          -- pfx .. this; "tbr"|"favorites"|"collection:<name>"|nil
+local SETTING_SHOW_FINISHED = "coverdeck_show_finished"   -- pfx .. this; default ON
 local ELEM_ORDER_KEY        = "coverdeck_stats_order"     -- pfx .. this
 local MAIN_ORDER_KEY        = "coverdeck_main_order"      -- pfx .. this
 
@@ -162,12 +164,20 @@ local _MAIN_ELEM_LABELS = {
 -- Settings accessors
 -- ---------------------------------------------------------------------------
 
-local function getSource(pfx)
-    return SUISettings:readSetting(pfx .. SETTING_SOURCE) or "recent"
+-- nil = no collection chosen yet. The old "recent" value (from before the
+-- recent-books source was removed) also reads as "not chosen".
+local function normalizeSource(src)
+    if type(src) ~= "string" or src == "" or src == "recent" then return nil end
+    return src
 end
 
+local function getSource(pfx)
+    return normalizeSource(SUISettings:readSetting(pfx .. SETTING_SOURCE))
+end
+
+-- A curated collection shows all its books by default, finished ones too.
 local function showFinished(pfx)
-    return SUISettings:readSetting(pfx .. SETTING_SHOW_FINISHED) == true
+    return SUISettings:readSetting(pfx .. SETTING_SHOW_FINISHED) ~= false
 end
 
 -- Same "unset == off" convention as showFinished above — the progress
@@ -456,49 +466,18 @@ local function _isBookDone(ctx, fp)
         (type(pd) == "table" and type(pd.summary) == "table" and pd.summary.status == "complete")
 end
 
--- Moves current_fp to the front of fps if present, otherwise returns fps
--- unchanged. Only reorders the coverdeck's own display list, not the
--- underlying source list (recent history, TBR, collection).
-local function _prioritizeCurrent(fps, current_fp)
-    if not (current_fp and fps and #fps > 0) then return fps end
-    local found = false
-    for _i, fp in ipairs(fps) do
-        if fp == current_fp then found = true; break end
-    end
-    if not found then return fps end
-    local result = { current_fp }
-    for _i, fp in ipairs(fps) do
-        if fp ~= current_fp then result[#result+1] = fp end
-    end
-    return result
-end
-
-local function buildRecentFps(ctx)
-    local fps      = {}
-    local show_fin = showFinished(ctx.pfx or "")
-    if ctx.current_fp then
-        fps[1] = ctx.current_fp
-    end
-    if ctx.recent_fps then
-        local seen = {}
-        if ctx.current_fp then seen[ctx.current_fp] = true end
-        for _i, fp in ipairs(ctx.recent_fps) do
-            if not seen[fp] and (show_fin or not _isBookDone(ctx, fp)) then
-                fps[#fps+1] = fp
-                seen[fp]    = true
-                if #fps >= MAX_RECENT_FPS then break end
-            end
-        end
-    end
-    return fps
-end
-
 local function buildTBRFps(ctx)
     if not ctx._tbr_fps then
         local tbr = require("modules/module_tbr")
         ctx._tbr_fps = tbr.getTBRList()
     end
-    return _prioritizeCurrent(ctx._tbr_fps, ctx.current_fp)
+    local show_fin = showFinished(ctx.pfx or "")
+    if show_fin then return ctx._tbr_fps end
+    local fps = {}
+    for _i, fp in ipairs(ctx._tbr_fps or {}) do
+        if not _isBookDone(ctx, fp) then fps[#fps + 1] = fp end
+    end
+    return fps
 end
 
 local function buildCollectionFps(coll_name, ctx)
@@ -529,7 +508,7 @@ local function buildCollectionFps(coll_name, ctx)
     for i = 1, #list do
         raw_fps[i] = list[i].filepath
     end
-    return _prioritizeCurrent(raw_fps, ctx.current_fp)
+    return raw_fps
 end
 
 local function buildFavoritesFps(ctx)
@@ -538,31 +517,31 @@ local function buildFavoritesFps(ctx)
     return buildCollectionFps(fav_name, ctx)
 end
 
+-- Only the chosen collection — never a fallback to other books.
 local function getFps(source, ctx)
-    local fps
+    if not source then return {} end
     if source == "tbr" then
-        fps = buildTBRFps(ctx)
+        return buildTBRFps(ctx)
     elseif source == "favorites" then
-        fps = buildFavoritesFps(ctx)
+        return buildFavoritesFps(ctx)
     elseif source:match("^" .. COLLECTION_PREFIX) then
-        local coll_name = source:sub(#COLLECTION_PREFIX + 1)
-        fps = buildCollectionFps(coll_name, ctx)
-    else
-        fps = buildRecentFps(ctx)
+        return buildCollectionFps(source:sub(#COLLECTION_PREFIX + 1), ctx)
     end
-    -- Fallback: if chosen source is empty, cascade through the others.
-    if not fps or #fps == 0 then
-        if source ~= "recent" then
-            fps = buildRecentFps(ctx)
-        end
-        if (not fps or #fps == 0) and source ~= "tbr" then
-            fps = buildTBRFps(ctx)
-        end
-        if (not fps or #fps == 0) and source ~= "favorites" then
-            fps = buildFavoritesFps(ctx)
-        end
+    return {}
+end
+
+-- Readable name of a source value (menus, empty message).
+local function sourceName(src)
+    if not src then return nil end
+    if src == "tbr" then
+        local TBR = package.loaded["modules/module_tbr"]
+        return (TBR and TBR.TBR_COLL_NAME) or _("To Be Read")
+    elseif src == "favorites" then
+        return _("Favorites")
+    elseif src:match("^" .. COLLECTION_PREFIX) then
+        return src:sub(#COLLECTION_PREFIX + 1)
     end
-    return fps
+    return src
 end
 
 -- ---------------------------------------------------------------------------
@@ -624,11 +603,17 @@ end
 -- multiple lines at the module's own width; falls back to a plain
 -- TextBoxWidget when there's no wallpaper to composite over, mirroring
 -- module_currently.lua's own text elements.
-local function _emptyPlaceholder(w, h, has_wallpaper)
+local function _emptyPlaceholder(w, h, has_wallpaper, source)
     local face = Font:getFace(SUIStyle.FACE_REGULAR, SUIStyle.FS_BODY)
     local line_h = math.floor(1.3 * face.size + 0.5)
+    local msg
+    if not source then
+        msg = _("Choose a collection to show here: long-press this module → Settings → Collection.")
+    else
+        msg = string.format(_("No books in “%s” to show."), sourceName(source))
+    end
     local args = {
-        text      = _("No books to show yet — open a book to see it here."),
+        text      = msg,
         face      = face,
         width     = w - PAD * 2,
         height    = math.max(line_h, h - PAD * 2),
@@ -662,21 +647,20 @@ function M.build(w, ctx)
 
     -- Use pre-read settings bundle from ctx when available (normal HS path).
     local c = ctx.cfg and ctx.cfg.coverdeck
-    local source = c and c.source or getSource(pfx)
+    local source = normalizeSource(c and c.source) or getSource(pfx)
 
     logger.dbg("coverdeck: build source=" .. tostring(source)
-        .. " current_fp=" .. tostring(ctx.current_fp)
-        .. " recent_fps=" .. tostring(ctx.recent_fps and #ctx.recent_fps or "nil"))
+        .. " current_fp=" .. tostring(ctx.current_fp))
 
     local fps = getFps(source, ctx)
     if not fps or #fps == 0 then
         logger.dbg(string.format("coverdeck: no books found (source=%s)", tostring(source)))
-        return _emptyPlaceholder(w, M.getHeight(ctx), ctx.has_wallpaper)
+        return _emptyPlaceholder(w, M.getHeight(ctx), ctx.has_wallpaper, source)
     end
 
     local SH = getSH()
     if not SH then
-        return _emptyPlaceholder(w, M.getHeight(ctx), ctx.has_wallpaper)
+        return _emptyPlaceholder(w, M.getHeight(ctx), ctx.has_wallpaper, source)
     end
 
     local CLR_TEXT_EFF     = SUIStyle.COLOR.text_primary
@@ -1300,60 +1284,13 @@ function M.getMenuItems(ctx_menu)
         }),
     }
 
-    local function makeCollectionsSubMenu()
-        local submenu = {}
-        local ok_rc, rc = pcall(require, "readcollection")
-        if ok_rc and rc then
-            -- Not calling rc:_read() — see note above; it can wipe
-            -- uncommitted collection changes made via the native
-            -- Collections UI.
-            local coll_set = {}
-            if rc.coll then for n in pairs(rc.coll) do coll_set[n] = true end end
-            if rc.coll_folders then for n in pairs(rc.coll_folders) do coll_set[n] = true end end
-
-            -- Remove favorites and TBR from this list as they have dedicated top-level options
-            local fav = rc.default_collection_name or "favorites"
-            coll_set[fav] = nil
-            local TBR = package.loaded["modules/module_tbr"]
-            local tbr_name = TBR and TBR.TBR_COLL_NAME or "To Be Read"
-            coll_set[tbr_name] = nil
-
-            local coll_names = {}
-            for name in pairs(coll_set) do
-                coll_names[#coll_names + 1] = name
-            end
-            table.sort(coll_names, function(a, b) return a:lower() < b:lower() end)
-
-            for _, name in ipairs(coll_names) do
-                local c_name = name
-                submenu[#submenu + 1] = {
-                    text         = c_name, radio = true,
-                    checked_func = function() return getSource(pfx) == COLLECTION_PREFIX .. c_name end,
-                    keep_menu_open = true,
-                    callback     = function()
-                        SUISettings:saveSetting(pfx .. SETTING_SOURCE, COLLECTION_PREFIX .. c_name)
-                        refresh()
-                    end,
-                }
-            end
-        end
-        if #submenu == 0 then
-            submenu[#submenu + 1] = {
-                text         = _lc("No collections found"),
-                enabled_func = function() return false end,
-            }
-        end
-        return submenu
-    end
-
-    -- A single-choice "source" entry: selecting it saves `value` under
-    -- SETTING_SOURCE and refreshes the menu.
-    local function _sourceRadioItem(label, value)
+    -- One flat list: To Be Read, Favorites, then every other collection.
+    local function _sourceRadioItem(label, value, sep)
         return {
-            text         = _lc(label), radio = true,
-            checked_func = function() return getSource(pfx) == value end,
+            text           = label, radio = true, separator = sep,
+            checked_func   = function() return getSource(pfx) == value end,
             keep_menu_open = true,
-            callback     = function()
+            callback       = function()
                 SUISettings:saveSetting(pfx .. SETTING_SOURCE, value)
                 refresh()
             end,
@@ -1362,36 +1299,31 @@ function M.getMenuItems(ctx_menu)
 
     local source_item = {
         text_func = function()
-            local src = getSource(pfx)
-            local display_src
-            if src == "recent" then
-                display_src = _lc("Recent Books")
-            elseif src == "tbr" then
-                display_src = _lc("To Be Read")
-            elseif src == "favorites" then
-                display_src = _lc("Favorites")
-            elseif src:match("^" .. COLLECTION_PREFIX) then
-                display_src = src:sub(#COLLECTION_PREFIX + 1)
-            else
-                display_src = src
-            end
-            return string.format("%s: %s", _lc("Source"), display_src)
+            return string.format("%s: %s", _lc("Collection"), sourceName(getSource(pfx)) or _lc("none"))
         end,
         sub_item_table_func = function()
-            local items = {
-                _sourceRadioItem("Recent Books", "recent"),
-                _sourceRadioItem("To Be Read",   "tbr"),
-                _sourceRadioItem("Favorites",    "favorites"),
-            }
-
+            local items = {}
             local ok_rc, rc = pcall(require, "readcollection")
+            local fav = (ok_rc and rc and rc.default_collection_name) or "favorites"
+            local TBR = package.loaded["modules/module_tbr"]
+            local tbr_name = TBR and TBR.TBR_COLL_NAME or "To Be Read"
+            items[#items + 1] = _sourceRadioItem(sourceName("tbr"), "tbr")
+            items[#items + 1] = _sourceRadioItem(_lc("Favorites"), "favorites", true)
             if ok_rc and rc then
-                items[#items + 1] = {
-                    text                = _lc("Collections"),
-                    sub_item_table_func = makeCollectionsSubMenu,
-                }
+                -- Not calling rc:_read(): it reloads collections from disk
+                -- and can wipe changes the Collections UI hasn't saved yet.
+                local coll_set = {}
+                if rc.coll then for n in pairs(rc.coll) do coll_set[n] = true end end
+                if rc.coll_folders then for n in pairs(rc.coll_folders) do coll_set[n] = true end end
+                coll_set[fav] = nil
+                coll_set[tbr_name] = nil
+                local names = {}
+                for n in pairs(coll_set) do names[#names + 1] = n end
+                table.sort(names, function(a, b) return a:lower() < b:lower() end)
+                for _i, n in ipairs(names) do
+                    items[#items + 1] = _sourceRadioItem(n, COLLECTION_PREFIX .. n)
+                end
             end
-
             return items
         end,
     }
