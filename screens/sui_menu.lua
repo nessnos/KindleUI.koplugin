@@ -4449,9 +4449,20 @@ SimpleUIPlugin.addToMainMenu = function(self, menu_items)
                 text = _("Progress Bar Type"),
                 sub_item_table = {
                     {
+                        text           = _("Rounded"),
+                        radio          = true,
+                        checked_func   = function() return (SUISettings:get("simpleui_style_progress_bar_type") or "rounded") == "rounded" end,
+                        keep_menu_open = true,
+                        callback       = function()
+                            SUISettings:set("simpleui_style_progress_bar_type", "rounded")
+                            refreshHomescreen()
+                            if ctx_menu and ctx_menu.refresh then ctx_menu.refresh() end
+                        end,
+                    },
+                    {
                         text           = _("Flat"),
                         radio          = true,
-                        checked_func   = function() return (SUISettings:get("simpleui_style_progress_bar_type") or "flat") == "flat" end,
+                        checked_func   = function() return (SUISettings:get("simpleui_style_progress_bar_type") or "rounded") == "flat" end,
                         keep_menu_open = true,
                         callback       = function()
                             SUISettings:set("simpleui_style_progress_bar_type", "flat")
@@ -4462,7 +4473,7 @@ SimpleUIPlugin.addToMainMenu = function(self, menu_items)
                     {
                         text           = _("Framed"),
                         radio          = true,
-                        checked_func   = function() return (SUISettings:get("simpleui_style_progress_bar_type") or "flat") == "framed" end,
+                        checked_func   = function() return (SUISettings:get("simpleui_style_progress_bar_type") or "rounded") == "framed" end,
                         keep_menu_open = true,
                         callback       = function()
                             SUISettings:set("simpleui_style_progress_bar_type", "framed")

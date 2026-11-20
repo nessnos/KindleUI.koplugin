@@ -239,7 +239,8 @@ local function makeInstance(inst_id)
 
     -- Color style: solid | flat (transparent folds into strength 0).
     local function getBg(pfx)
-        local v = SUISettings:readSetting(pfx .. BG_KEY) or "solid"
+        -- KindleUI: borderless grey "flat" tiles (heatmap look) by default.
+        local v = SUISettings:readSetting(pfx .. BG_KEY) or "flat"
         if v == "transparent" then return "solid" end
         return v
     end

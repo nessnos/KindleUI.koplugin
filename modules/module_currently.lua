@@ -169,7 +169,10 @@ local function buildProgressBarWithPct(w, pct, bar_h, scale, lbl_scale, face_inl
     local pct_str = string.format("%.0f%%", (pct or 0) * 100)
     -- face_inline is pre-resolved by build(); fallback for direct calls.
     local _face   = face_inline or Font:getFace(SUIStyle.FACE_REGULAR, math.max(7, math.floor(_BASE_INLINEPCT_FS * scale * lbl_scale)))
-    local _fg     = fg_color or SUIStyle.COLOR.text_primary
+    -- KindleUI: the percentage is a quiet grey caption next to the rounded
+    -- bar (same text style as the heatmap / calendar captions).
+    local _fg     = fg_color
+    if not _fg or _fg == SUIStyle.COLOR.text_primary then _fg = SUIStyle.COLOR.text_secondary end
 
     local bar = UI.progressBar(bar_w, pct, bar_h)
 
@@ -180,7 +183,7 @@ local function buildProgressBarWithPct(w, pct, bar_h, scale, lbl_scale, face_inl
         UI.makeColoredText{
             text    = pct_str,
             face    = _face,
-            bold    = true,
+            bold    = false,
             fgcolor = _fg,
             width   = PCT_W,
         },

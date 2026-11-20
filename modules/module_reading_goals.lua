@@ -880,6 +880,29 @@ M.showAnnualPhysicalDialog  = showAnnualPhysicalDialog
 M.showMonthlySettingsDialog = showMonthlySettingsDialog
 M.showDailySettingsDialog   = showDailySettingsDialog
 
+-- KindleUI: summary line under the title, like Monthly TBR's "3 of 5
+-- read": "12 of 30 books · 2 ahead" — how this year's count compares with
+-- an even pace through the year.
+function M.label_sub_func(ctx)
+    if not showAnnual() then return nil end
+    local goal = getAnnualGoal()
+    if goal <= 0 then return nil end
+    local sp   = (ctx and ctx.stats) or {}
+    local read = (sp.books_year or 0) + getAnnualPhysical()
+    local base = string.format(_("%d of %d books"), read, goal)
+    if read >= goal then return base .. " · " .. _("goal reached") end
+    local t      = os.date("*t")
+    local leap   = (t.year % 4 == 0 and t.year % 100 ~= 0) or (t.year % 400 == 0)
+    local expect = math.floor(goal * t.yday / (leap and 366 or 365) + 0.5)
+    local diff   = read - expect
+    if diff == 0 then
+        return base .. " · " .. _("on track")
+    elseif diff > 0 then
+        return base .. " · " .. string.format(N_("%d ahead", "%d ahead", diff), diff)
+    end
+    return base .. " · " .. string.format(N_("%d behind", "%d behind", -diff), -diff)
+end
+
 -- Delegate cache invalidation to StatsProvider (shared with reading_stats).
 function M.invalidateCache()
     local SP = package.loaded["modules/module_stats_provider"]
@@ -1242,6 +1265,13 @@ function M.getHeight(_ctx)
     -- real widget by border_sz * 2 pixels whenever the frame is on.
     if SUISettings:isTrue(pfx .. "reading_goals_show_frame") then
         h = h + SUIStyle.BORDER_SZ * 2
+    end
+    -- KindleUI: the summary line under the title adds one line of text.
+    if M.label and M.label_sub_func(_ctx) then
+        local fs = math.max(7, math.floor(SUIStyle.FS_DETAIL * Config.getLabelScale() * lf))
+        local tw = TextWidget:new{ text = "Xg", face = Font:getFace(SUIStyle.FACE_REGULAR, fs) }
+        h = h + tw:getSize().h
+        tw:free()
     end
     return label_h + h
 end

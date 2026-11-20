@@ -69,12 +69,13 @@ local function _clampFs(v, lo, hi)
     return math.max(lo, math.min(hi, math.floor(v)))
 end
 
-local SETTING_TYPE     = "reading_stats_type"            -- style: cards / flat / list
+local SETTING_TYPE     = "reading_stats_type"            -- style: soft / cards / flat / list
 local SETTING_ALIGN    = "reading_stats_align"
 local SETTING_CARD_STR = "reading_stats_card_strength"   -- 0–100 fill opacity
 
 local function getType(pfx)
-    local t = SUISettings:readSetting(pfx .. SETTING_TYPE) or "cards"
+    -- KindleUI: "soft" (the heatmap-style tiles) is the default look.
+    local t = SUISettings:readSetting(pfx .. SETTING_TYPE) or "soft"
     -- Legacy alias folded into cards + strength 0.
     if t == "cards_transparent" then return "cards" end
     return t
@@ -354,6 +355,160 @@ local function buildStatListCell(cell_w, stat_id, stats, show_sep, d, align, col
     return og, update_fn
 end
 
+-- ---------------------------------------------------------------------------
+-- KindleUI: "Soft" style — tiles drawn like the Reading Heatmap / Calendar:
+-- a soft grey rounded tile with no border, the number big and bold, a grey
+-- caption under it and, on the streak and "this week" tiles, a row of
+-- seven rounded squares for Monday → Sunday shaded like the heatmap.
+-- ---------------------------------------------------------------------------
+local STRIP_IDS = { streak = true, week_time = true, week_pages = true }
+
+local function _weekStrip(conn)
+    local ok_hd, HD = pcall(require, "engines/sui_heatmap_data")
+    local ok_hw, HW = pcall(require, "engines/sui_heatmap_widgets")
+    if not (ok_hd and ok_hw) then return nil end
+    local now = os.time()
+    local t   = os.date("*t", now)
+    local wd  = (t.wday + 5) % 7                      -- 0 = Monday
+    local mon = os.time{ year = t.year, month = t.month, day = t.day - wd, hour = 12 }
+    local ok, data = pcall(HD.getDailyReadingData, mon, now, conn)
+    if not ok or type(data) ~= "table" then data = {} end
+    local secs, max_s = {}, 0
+    for i = 0, 6 do
+        local s = data[os.date("%Y-%m-%d", mon + i * 86400)] or 0
+        secs[i] = s
+        if s > max_s then max_s = s end
+    end
+    local strip = {}
+    for i = 0, 6 do
+        strip[i + 1] = {
+            level  = HW.classify(secs[i], max_s),
+            today  = (i == wd),
+            future = (i > wd),
+            color  = HW.levelColor(HW.classify(secs[i], max_s)),
+        }
+    end
+    return strip
+end
+
+local SoftTile = Widget:extend{
+    width = 0, height = 0, stat_id = nil, stats = nil, d = nil,
+    align = "left", strength = 100, strip = nil,
+}
+
+function SoftTile:getSize() return Geom:new{ w = self.width, h = self.height } end
+
+function SoftTile:_freeTexts()
+    if self._val then self._val:free(); self._val = nil end
+    if self._lbl then self._lbl:free(); self._lbl = nil end
+end
+
+function SoftTile:init()
+    self.dimen = Geom:new{ w = self.width, h = self.height }
+    self:setStats(self.stats, self.strip)
+end
+
+function SoftTile:setStats(stats, strip)
+    self:_freeTexts()
+    self.stats = stats
+    if strip ~= nil then self.strip = strip end
+    local entry = STAT_MAP[self.stat_id]
+    if not entry then return end
+    local d   = self.d
+    local pad = math.max(Screen:scaleBySize(8), math.floor(self.height * 0.12))
+    self._pad = pad
+    local max_w = math.max(1, self.width - 2 * pad)
+    local has_strip = STRIP_IDS[self.stat_id] and self.strip ~= nil
+    -- leave room for the strip: the number shrinks a little on those tiles
+    local val_fs = has_strip and math.min(d.val_fs, math.floor(self.height * 0.30)) or d.val_fs
+    self._val = TextWidget:new{
+        text = entry.value(stats), face = Font:getFace(SUIStyle.FACE_BOLD or SUIStyle.FACE_REGULAR, math.max(8, val_fs)),
+        bold = true, fgcolor = SUIStyle.COLOR.text_primary,
+        max_width = max_w, truncate_with_ellipsis = true,
+    }
+    self._lbl = TextWidget:new{
+        text = entry.label_fn and entry.label_fn(stats) or entry.label,
+        face = d.face_lbl, fgcolor = SUIStyle.COLOR.text_secondary,
+        max_width = max_w, truncate_with_ellipsis = true,
+    }
+    self._has_strip = has_strip
+end
+
+function SoftTile:_alignX(x, w)
+    local pad = self._pad
+    if self.align == "right"  then return x + self.width - pad - w end
+    if self.align == "center" then return x + math.floor((self.width - w) / 2) end
+    return x + pad
+end
+
+function SoftTile:paintTo(bb, x, y)
+    self.dimen = Geom:new{ x = x, y = y, w = self.width, h = self.height }
+    local r = self.d.corner_r
+    local ok, WP = pcall(require, "features/sui_wallpaper")
+    if ok and WP and WP.paintBackdrop then
+        if self.strength > 0 then
+            WP.paintBackdrop(bb, x, y, self.width, self.height, self.strength, r, SUIStyle.COLOR.surface_flat)
+        end
+    else
+        bb:paintRoundedRect(x, y, self.width, self.height, SUIStyle.COLOR.surface_flat, r)
+    end
+    if not self._val then return end
+
+    local pad   = self._pad
+    local vsz   = self._val:getSize()
+    local lsz   = self._lbl:getSize()
+    local sq, sgap, strip_w = 0, 0, 0
+    if self._has_strip then
+        local avail = self.width - 2 * pad
+        sgap = math.max(2, Screen:scaleBySize(3))
+        sq   = math.floor((avail - 6 * sgap) / 7)
+        sq   = math.min(sq, math.floor(self.height * 0.13), Screen:scaleBySize(14))
+        if sq < 4 then sq = 0 end
+        strip_w = 7 * sq + 6 * sgap
+    end
+    local strip_h  = sq > 0 and (sq + Screen:scaleBySize(6)) or 0
+    local block_h  = vsz.h + lsz.h + strip_h
+    local ty = y + math.max(0, math.floor((self.height - block_h) / 2))
+
+    self._val:paintTo(bb, self:_alignX(x, vsz.w), ty)
+    ty = ty + vsz.h
+    self._lbl:paintTo(bb, self:_alignX(x, lsz.w), ty)
+    ty = ty + lsz.h
+
+    if sq > 0 then
+        ty = ty + Screen:scaleBySize(6)
+        local sx = self:_alignX(x, strip_w)
+        local sr = math.max(1, math.floor(sq / 4))
+        for i, c in ipairs(self.strip) do
+            local cx = sx + (i - 1) * (sq + sgap)
+            if c.future then
+                -- days still to come: just an outline-free faint square
+                bb:paintRoundedRect(cx, ty, sq, sq, SUIStyle.COLOR.surface, sr)
+            elseif c.today then
+                bb:paintRoundedRect(cx - 1, ty - 1, sq + 2, sq + 2, SUIStyle.COLOR.text_primary, sr + 1)
+                bb:paintRoundedRect(cx, ty, sq, sq, SUIStyle.COLOR.surface, sr)
+                bb:paintRoundedRect(cx + 1, ty + 1, sq - 2, sq - 2, c.color, math.max(1, sr - 1))
+            else
+                bb:paintRoundedRect(cx, ty, sq, sq, c.color, sr)
+            end
+        end
+    end
+end
+
+function SoftTile:free() self:_freeTexts() end
+
+local function buildStatSoftWidget(card_w, stat_id, stats, d, align, strength, strip)
+    local tile = SoftTile:new{
+        width = card_w, height = d.card_h, stat_id = stat_id, stats = stats,
+        d = d, align = align, strength = strength or 100,
+        strip = STRIP_IDS[stat_id] and strip or nil,
+    }
+    local update_fn = function(new_stats, new_strip)
+        tile:setStats(new_stats, STRIP_IDS[stat_id] and new_strip or nil)
+    end
+    return tile, update_fn
+end
+
 local function openReadingInsights()
     local ok, SW = pcall(require, "screens/sui_stats_windows")
     if ok and SW and SW.showReadingInsightsWindow then
@@ -593,9 +748,17 @@ function M.build(w, ctx)
         local offset_x = math.floor((w - row_w) / 2)
         local colors  = { blk = _CLR_TEXT_BLK_EFF, sub = CLR_TEXT_SUB_EFF }
         local card_strength = getCardStrength(ctx.pfx)
+        local strip
+        if mode == "soft" then
+            for i = 1, n do
+                if STRIP_IDS[stat_ids[i]] then strip = _weekStrip(ctx and ctx.db_conn); break end
+            end
+        end
         for i = 1, n do
             local card, update_fn
-            if mode == "flat" then
+            if mode == "soft" then
+                card, update_fn = buildStatSoftWidget(card_w, stat_ids[i], stats, d, align, card_strength, strip)
+            elseif mode == "flat" then
                 card, update_fn = buildStatFlatWidget(card_w, stat_ids[i], stats, d, align, colors, card_strength)
             else
                 card, update_fn = buildStatCardWidget(card_w, stat_ids[i], stats, d, align, colors, card_strength, false)
@@ -669,17 +832,24 @@ function M.updateStats(widget, ctx)
         status_abandoned = (ctx.status_counts and ctx.status_counts.abandoned) or 0,
     }
     local any_updated = false
+    -- Soft style: the week strip follows the "timeseries" refresh.
+    local strip
+    if getType(ctx.pfx or "simpleui_hs_") == "soft" and not (changed and changed.timeseries == false and changed.streak == false) then
+        for _, entry in ipairs(widget._rs_update_funcs) do
+            if STRIP_IDS[entry.id] then strip = _weekStrip(ctx and ctx.db_conn); break end
+        end
+    end
     for _, entry in ipairs(widget._rs_update_funcs) do
         -- Skip this card if we know its category did not change this cycle.
         if changed then
             local cat = STAT_CHANGED_CAT[entry.id]
-            if cat and changed[cat] == false then
+            if cat and changed[cat] == false and not (strip and STRIP_IDS[entry.id]) then
                 -- This field was preserved from cache — value is identical,
                 -- no need to rebuild the card's TextWidgets or mark it dirty.
                 goto continue
             end
         end
-        entry.fn(stats)
+        entry.fn(stats, strip)
         any_updated = true
         ::continue::
     end
@@ -847,6 +1017,16 @@ function M.getMenuItems(ctx_menu)
         {
             text           = _lc("Style"),
             sub_item_table = {
+                {
+                    text           = _lc("Soft (matches the heatmap)"),
+                    radio          = true,
+                    keep_menu_open = true,
+                    checked_func   = function() return getType(pfx) == "soft" end,
+                    callback       = function()
+                        SUISettings:saveSetting(pfx .. SETTING_TYPE, "soft")
+                        refresh()
+                    end,
+                },
                 {
                     text           = _lc("Cards"),
                     radio          = true,
