@@ -897,12 +897,32 @@ function M.progressBar(w, pct, bar_h, fg_color, bg_color)
     end
 
     local ok, SUIStyle = pcall(require, "features/sui_style")
-    local style = SUISettings:get("simpleui_style_progress_bar_type") or "flat"
+    -- KindleUI: "rounded" (pill-shaped, like the heatmap squares) is the
+    -- default; "flat" and "framed" are still there.
+    local style = SUISettings:get("simpleui_style_progress_bar_type") or "rounded"
 
     local bg = bg_color or SUIStyle.COLOR.track
     local fg = fg_color or Blitbuffer.COLOR_BLACK
-    
-    if style == "framed" then
+
+    if style == "rounded" then
+        -- a touch thicker than the flat bar so the round ends show
+        bar_h = math.min(slot_h, math.max(4, math.floor(slot_h * 0.6 + 0.5)))
+        local Widget = require("ui/widget/widget")
+        local Pill = Widget:extend{}
+        local frac = math.max(0, math.min(pct or 0, 1.0))
+        function Pill:getSize() return Geom():new{ w = w, h = bar_h } end
+        function Pill:paintTo(bb, x, y)
+            self.dimen = Geom():new{ x = x, y = y, w = w, h = bar_h }
+            local r = math.floor(bar_h / 2)
+            bb:paintRoundedRect(x, y, w, bar_h, bg, r)
+            local fw = math.floor(w * frac)
+            if fw > 0 then
+                fw = math.max(fw, bar_h)   -- keep the rounded end whole
+                bb:paintRoundedRect(x, y, math.min(fw, w), bar_h, fg, r)
+            end
+        end
+        return slot(Pill:new{})
+    elseif style == "framed" then
         local border = ok and SUIStyle.BADGE_BORDER_SZ or 1
         local border_color = SUIStyle.COLOR.text_primary
         local inner_w = math.max(0, w - 2 * border)
